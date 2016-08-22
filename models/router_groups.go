@@ -21,10 +21,19 @@ type RouterGroupDB struct {
 }
 
 type RouterGroup struct {
-	Guid            string          `gorm:"primary_key",json:"guid"`
+	Guid            string          `json:"guid"`
 	Name            string          `json:"name"`
 	Type            RouterGroupType `json:"type"`
-	ReservablePorts ReservablePorts `gorm:"type:varchar(255)" json:"reservable_ports" yaml:"reservable_ports"`
+	ReservablePorts ReservablePorts `json:"reservable_ports" yaml:"reservable_ports"`
+}
+
+func NewRouterGroupDB(routerGroup RouterGroup) RouterGroupDB {
+	return RouterGroupDB{
+		Guid:            routerGroup.Guid,
+		Name:            routerGroup.Name,
+		Type:            string(routerGroup.Type),
+		ReservablePorts: string(routerGroup.ReservablePorts),
+	}
 }
 
 func (rg *RouterGroupDB) ToRouterGroup() RouterGroup {

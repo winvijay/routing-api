@@ -47,9 +47,31 @@ func (s *SqlDB) ReadRouterGroups() (models.RouterGroups, error) {
 }
 
 func (s *SqlDB) ReadRouterGroup(guid string) (models.RouterGroup, error) {
-	return models.RouterGroup{}, nil
+	routerGroupDB := models.RouterGroupDB{}
+	routerGroup := models.RouterGroup{}
+	err := s.Client.Where("guid = ?", guid).First(&routerGroupDB).Error
+	if err == nil {
+		routerGroup = routerGroupDB.ToRouterGroup()
+	}
+
+	return routerGroup, err
 }
 
 func (s *SqlDB) SaveRouterGroup(routerGroup models.RouterGroup) error {
-	return nil
+	fmt.Printf("***in saveroutergroup***** %#v\n", routerGroup)
+	existingRouterGroup, err := s.ReadRouterGroup(routerGroup.Guid)
+	if err != nil {
+		return err
+	}
+
+	routerGroupDB := models.NewRouterGroupDB(routerGroup)
+	if existingRouterGroup.Guid == routerGroup.Guid {
+		fmt.Printf("***found existing***** %#v\n", existingRouterGroup)
+		err = s.Client.Save(&routerGroupDB).Error
+	} else {
+		fmt.Printf("***didn't find existing*****\n")
+		err = s.Client.Create(&routerGroupDB).Error
+	}
+
+	return err
 }
