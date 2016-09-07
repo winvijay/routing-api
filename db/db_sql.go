@@ -36,7 +36,7 @@ func NewSqlDB(cfg *config.SqlDB) (DB, error) {
 		return nil, err
 	}
 
-	db.AutoMigrate(&models.RouterGroupDB{})
+	db.AutoMigrate(&models.RouterGroupDB{}, &models.TcpRouteMapping{})
 	return &SqlDB{Client: db}, nil
 }
 
@@ -95,6 +95,15 @@ func updateRouterGroup(existingRouterGroup, currentRouterGroup *models.RouterGro
 	}
 }
 
+func updateTcpRouteMapping(existingTcpRouteMapping *models.TcpRouteMapping, currentTcpRouteMapping *models.TcpRouteMapping) {
+	if currentTcpRouteMapping.ModificationTag != (models.ModificationTag{}) {
+		existingTcpRouteMapping.ModificationTag = currentTcpRouteMapping.ModificationTag
+	}
+	if currentTcpRouteMapping.TTL != nil {
+		existingTcpRouteMapping.TTL = currentTcpRouteMapping.TTL
+	}
+}
+
 func notImplementedError() error {
 	pc, _, _, _ := runtime.Caller(1)
 	fnName := runtime.FuncForPC(pc).Name()
@@ -114,9 +123,40 @@ func (s *SqlDB) DeleteRoute(route models.Route) error {
 func (s *SqlDB) ReadTcpRouteMappings() ([]models.TcpRouteMapping, error) {
 	return nil, notImplementedError()
 }
-func (s *SqlDB) SaveTcpRouteMapping(tcpMapping models.TcpRouteMapping) error {
-	return notImplementedError()
+
+func (s *SqlDB) ReadTcpRouteMapping(tcpMapping models.TcpRouteMapping) (models.TcpRouteMapping, error) {
+	var routes []models.TcpRouteMapping
+	var tcpRoute models.TcpRouteMapping
+	err := s.Client.Where("host_ip = ? and host_port = ? and external_port = ?",
+		tcpMapping.HostIP, tcpMapping.HostPort, tcpMapping.TcpRoute.ExternalPort).Find(&routes).Error
+
+	if err != nil {
+		return tcpRoute, err
+	}
+	count := len(routes)
+	if count > 1 || count < 0 {
+		return tcpRoute, errors.New("Have duplicate tcp route mappings")
+	}
+	if count == 1 {
+		tcpRoute = routes[0]
+	}
+
+	return tcpRoute, err
 }
+
+func (s *SqlDB) SaveTcpRouteMapping(tcpMapping models.TcpRouteMapping) error {
+	var existingTcpRouteMapping models.TcpRouteMapping
+	existingTcpRouteMapping, err := s.ReadTcpRouteMapping(tcpMapping)
+	if err != nil {
+		return err
+	}
+	if existingTcpRouteMapping != (models.TcpRouteMapping{}) {
+		updateTcpRouteMapping(&existingTcpRouteMapping, &tcpMapping)
+		return s.Client.Save(&existingTcpRouteMapping).Error
+	}
+	return s.Client.Create(&tcpMapping).Error
+}
+
 func (s *SqlDB) DeleteTcpRouteMapping(tcpMapping models.TcpRouteMapping) error {
 	return notImplementedError()
 }

@@ -4,15 +4,15 @@ import "fmt"
 
 type TcpRouteMapping struct {
 	TcpRoute
-	HostPort        uint16          `json:"backend_port"`
-	HostIP          string          `json:"backend_ip"`
-	ModificationTag ModificationTag `json:"modification_tag"`
-	TTL             *int            `json:"ttl,omitempty"`
+	HostPort        uint16 `gorm:"primary_key; type:int" json:"backend_port"`
+	HostIP          string `gorm:"primary_key" json:"backend_ip"`
+	ModificationTag `json:"modification_tag"`
+	TTL             *int `json:"ttl,omitempty"`
 }
 
 type TcpRoute struct {
 	RouterGroupGuid string `json:"router_group_guid"`
-	ExternalPort    uint16 `json:"port"`
+	ExternalPort    uint16 `gorm:"primary_key;type: int" json:"port"`
 }
 
 func NewTcpRouteMapping(routerGroupGuid string, externalPort uint16, hostIP string, hostPort uint16, ttl int) TcpRouteMapping {
