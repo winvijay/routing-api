@@ -262,8 +262,6 @@ var _ = Describe("SqlDB", func() {
 				HostIP:          "127.0.0.1",
 				ModificationTag: models.ModificationTag{Guid: "some-tag", Index: 10},
 			}
-
-			// fmt.Printf("initialized tcp route %#v\n", tcpRoute)
 		})
 
 		JustBeforeEach(func() {
@@ -295,9 +293,6 @@ var _ = Describe("SqlDB", func() {
 				sqlDB.Client.Where("host_ip = ?", "127.0.0.1").First(&dbTcpRoute)
 				Expect(dbTcpRoute).ToNot(BeNil())
 				Expect(dbTcpRoute).To(Equal(tcpRoute))
-				// tr, err := sqlDB.ReadTcpRouteMappings()
-				// Expect(err).ToNot(HaveOccurred())
-				// Expect(tr).To(ContainElement(tcpRoute))
 			})
 		})
 
