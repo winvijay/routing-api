@@ -270,14 +270,13 @@ var _ = Describe("SqlDB", func() {
 			err = sqlDB.SaveTcpRouteMapping(tcpRoute)
 		})
 
+		AfterEach(func() {
+			sqlDB.Client.Delete(&tcpRoute)
+		})
 		Context("when tcp route exists", func() {
 			BeforeEach(func() {
 				sqlDB.Client.Create(&tcpRoute)
 				tcpRoute.ModificationTag.Index = 15
-			})
-
-			AfterEach(func() {
-				sqlDB.Client.Delete(&tcpRoute)
 			})
 
 			It("updates the existing router group", func() {
@@ -304,6 +303,98 @@ var _ = Describe("SqlDB", func() {
 
 	})
 
+	Describe("ReadTcpRouteMappings", func() {
+		var (
+			err           error
+			routerGroupId string
+			tcpRoute      models.TcpRouteMapping
+			tcpRoutes     []models.TcpRouteMapping
+		)
+		BeforeEach(func() {
+			routerGroupId = newUuid()
+			tcpRoute = models.TcpRouteMapping{
+				TcpRoute:        models.TcpRoute{RouterGroupGuid: routerGroupId, ExternalPort: 2990},
+				HostPort:        3056,
+				HostIP:          "127.0.0.1",
+				ModificationTag: models.ModificationTag{Guid: "some-tag", Index: 10},
+			}
+		})
+
+		JustBeforeEach(func() {
+			tcpRoutes, err = sqlDB.ReadTcpRouteMappings()
+		})
+
+		Context("when at least one tcp route exists", func() {
+			BeforeEach(func() {
+				Expect(sqlDB.Client.Create(&tcpRoute).Error).ToNot(HaveOccurred())
+			})
+
+			AfterEach(func() {
+				Expect(sqlDB.Client.Delete(&tcpRoute).Error).ToNot(HaveOccurred())
+			})
+
+			It("returns the tcp routes", func() {
+				Expect(err).ToNot(HaveOccurred())
+				Expect(tcpRoutes).To(ContainElement(tcpRoute))
+			})
+		})
+
+		Context("when tcp route doesn't exist", func() {
+
+			It("returns an empty array", func() {
+				Expect(err).ToNot(HaveOccurred())
+				Expect(tcpRoutes).To(Equal([]models.TcpRouteMapping{}))
+			})
+		})
+	})
+
+	Describe("DeleteTcpRouteMapping", func() {
+		var (
+			err           error
+			routerGroupId string
+			tcpRoute      models.TcpRouteMapping
+			tcpRoutes     []models.TcpRouteMapping
+		)
+		BeforeEach(func() {
+			routerGroupId = newUuid()
+			tcpRoute = models.TcpRouteMapping{
+				TcpRoute:        models.TcpRoute{RouterGroupGuid: routerGroupId, ExternalPort: 2990},
+				HostPort:        3056,
+				HostIP:          "127.0.0.1",
+				ModificationTag: models.ModificationTag{Guid: "some-tag", Index: 10},
+			}
+		})
+
+		JustBeforeEach(func() {
+			err = sqlDB.DeleteTcpRouteMapping(tcpRoute)
+		})
+
+		Context("when at least one tcp route exists", func() {
+			BeforeEach(func() {
+				Expect(sqlDB.Client.Create(&tcpRoute).Error).ToNot(HaveOccurred())
+			})
+
+			AfterEach(func() {
+				Expect(sqlDB.Client.Delete(&tcpRoute).Error).ToNot(HaveOccurred())
+			})
+
+			It("returns the tcp routes", func() {
+				Expect(err).ToNot(HaveOccurred())
+
+				tcpRoutes, err = sqlDB.ReadTcpRouteMappings()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(tcpRoutes).ToNot(ContainElement(tcpRoute))
+			})
+		})
+
+		Context("when the tcp route doesn't exist", func() {
+
+			It("returns an error", func() {
+				Expect(err).To(HaveOccurred())
+				Expect(err).Should(MatchError(db.DeleteError))
+			})
+		})
+	})
 	Describe("Methods not implemented", func() {
 		It("returns an error", func() {
 			err := sqlDB.SaveRoute(models.Route{})

@@ -18,6 +18,8 @@ type SqlDB struct {
 	Client Client
 }
 
+const DeleteError = "Delete Fails: TCP Route Mapping does not exist"
+
 var _ DB = &SqlDB{}
 
 func NewSqlDB(cfg *config.SqlDB) (DB, error) {
@@ -121,7 +123,12 @@ func (s *SqlDB) DeleteRoute(route models.Route) error {
 }
 
 func (s *SqlDB) ReadTcpRouteMappings() ([]models.TcpRouteMapping, error) {
-	return nil, notImplementedError()
+	var tcpRoutes []models.TcpRouteMapping
+	err := s.Client.Find(&tcpRoutes).Error
+	if err != nil {
+		return nil, err
+	}
+	return tcpRoutes, nil
 }
 
 func (s *SqlDB) ReadTcpRouteMapping(tcpMapping models.TcpRouteMapping) (models.TcpRouteMapping, error) {
@@ -158,7 +165,14 @@ func (s *SqlDB) SaveTcpRouteMapping(tcpMapping models.TcpRouteMapping) error {
 }
 
 func (s *SqlDB) DeleteTcpRouteMapping(tcpMapping models.TcpRouteMapping) error {
-	return notImplementedError()
+	tcpRoute, err := s.ReadTcpRouteMapping(tcpMapping)
+	if err != nil {
+		return err
+	}
+	if tcpRoute == (models.TcpRouteMapping{}) {
+		return errors.New(DeleteError)
+	}
+	return s.Client.Delete(&tcpMapping).Error
 }
 func (s *SqlDB) Connect() error {
 	return notImplementedError()
