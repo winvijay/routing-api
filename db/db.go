@@ -90,6 +90,27 @@ func (j jointDB) SaveRouterGroup(routerGroup models.RouterGroup) error {
 	return j.etcd.SaveRouterGroup(routerGroup)
 }
 
+func (j jointDB) ReadTcpRouteMappings() ([]models.TcpRouteMapping, error) {
+	if j.sql != nil {
+		return j.sql.ReadTcpRouteMappings()
+	}
+	return j.etcd.ReadTcpRouteMappings()
+}
+
+func (j jointDB) SaveTcpRouteMapping(tcpMapping models.TcpRouteMapping) error {
+	if j.sql != nil {
+		return j.sql.SaveTcpRouteMapping(tcpMapping)
+	}
+	return j.etcd.SaveTcpRouteMapping(tcpMapping)
+}
+
+func (j jointDB) DeleteTcpRouteMapping(tcpMapping models.TcpRouteMapping) error {
+	if j.sql != nil {
+		return j.sql.DeleteTcpRouteMapping(tcpMapping)
+	}
+	return j.etcd.DeleteTcpRouteMapping(tcpMapping)
+}
+
 type etcd struct {
 	client     client.Client
 	keysAPI    client.KeysAPI

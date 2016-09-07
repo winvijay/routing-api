@@ -26,7 +26,7 @@ func NewSqlDB(cfg *config.SqlDB) (DB, error) {
 	if cfg == nil {
 		return nil, errors.New("SQL configuration cannot be nil")
 	}
-	connectionString := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s",
+	connectionString := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true",
 		cfg.Username,
 		cfg.Password,
 		cfg.Host,

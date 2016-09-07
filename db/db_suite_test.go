@@ -23,7 +23,7 @@ var etcdClient storeadapter.StoreAdapter
 var etcdPort int
 var etcdUrl string
 var etcdRunner *etcdstorerunner.ETCDClusterRunner
-var etcdVersion = "etcdserver\":\"2.1.1"
+var etcdVersion = "etcdserver"
 var routingAPIBinPath string
 var basePath string
 var sqlCfg *config.SqlDB
