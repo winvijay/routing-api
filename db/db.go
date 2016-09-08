@@ -530,5 +530,5 @@ func generateTcpRouteMappingKey(tcpMapping models.TcpRouteMapping) string {
 	// Generating keys following this pattern
 	// /v1/tcp_routes/router_groups/{router_guid}/{port}/{host-ip}:{host-port}
 	return fmt.Sprintf("%s/%s/%d/%s:%d", TCP_MAPPING_BASE_KEY,
-		tcpMapping.TcpRoute.RouterGroupGuid, tcpMapping.TcpRoute.ExternalPort, tcpMapping.HostIP, tcpMapping.HostPort)
+		tcpMapping.RouterGroupGuid, tcpMapping.ExternalPort, tcpMapping.HostIP, tcpMapping.HostPort)
 }

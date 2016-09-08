@@ -121,7 +121,7 @@ var _ = Describe("Routes API", func() {
 				routerGroupGuid = getRouterGroupGuid()
 			})
 			Context("POST", func() {
-				FIt("allows to create given tcp route mappings", func() {
+				It("allows to create given tcp route mappings", func() {
 					client := routing_api.NewClient(fmt.Sprintf("http://127.0.0.1:%d", routingAPIPort), false)
 					var err error
 					tcpRouteMapping1 = models.NewTcpRouteMapping(routerGroupGuid, 52000, "1.2.3.4", 60000, 60)
@@ -172,7 +172,7 @@ var _ = Describe("Routes API", func() {
 				})
 
 				It("allows to delete given tcp route mappings", func() {
-					err := client.DeleteTcpRouteMappings(tcpRouteMappings)
+					err = client.DeleteTcpRouteMappings(tcpRouteMappings)
 					Expect(err).NotTo(HaveOccurred())
 
 					tcpRouteMappingsResponse, err := client.TcpRouteMappings()
@@ -298,23 +298,7 @@ var _ = Describe("Routes API", func() {
 		dbSQL.Client.Delete(models.TcpRouteMapping{})
 	}
 
-	Describe("API with ETCD + MySQL", func() {
-		var routingAPIProcess ifrit.Process
-
-		BeforeEach(func() {
-			routingAPIRunner := testrunner.New(routingAPIBinPath, routingAPIArgs)
-			routingAPIProcess = ginkgomon.Invoke(routingAPIRunner)
-		})
-
-		AfterEach(func() {
-			ginkgomon.Kill(routingAPIProcess)
-			cleanupSQLRouterGroups()
-		})
-
-		TestTCPRoutes(false)
-	})
-
-	FDescribe("API with MySQL Only", func() {
+	Describe("API with MySQL Only", func() {
 		var routingAPIProcess ifrit.Process
 
 		BeforeEach(func() {
@@ -328,7 +312,7 @@ var _ = Describe("Routes API", func() {
 			cleanupSQLTCPRouteMappings()
 		})
 
-		//TestRouterGroups(false)
+		TestRouterGroups(false)
 		TestTCPRoutes(false)
 	})
 

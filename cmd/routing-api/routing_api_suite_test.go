@@ -49,7 +49,7 @@ var (
 	consulRunner *consulrunner.ClusterRunner
 )
 
-var etcdVersion = "etcdserver"
+var etcdVersion = "etcdserver\":\"2.1.1"
 
 func TestMain(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -115,9 +115,9 @@ func createSqlDatabase() {
 }
 
 func dropSqlDatabase() {
-	// defer sqlDB.Close()
-	// _, err := sqlDB.Exec(fmt.Sprintf("DROP DATABASE %s", sqlDBName))
-	// Expect(err).NotTo(HaveOccurred())
+	defer sqlDB.Close()
+	_, err := sqlDB.Exec(fmt.Sprintf("DROP DATABASE %s", sqlDBName))
+	Expect(err).NotTo(HaveOccurred())
 }
 
 func setupETCD() {

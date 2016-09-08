@@ -9,43 +9,43 @@ import (
 
 type TcpRouteMapping struct {
 	Model
-	ExpiresAt time.Time
-	TcpRouteMappingEntity
+	ExpiresAt time.Time `json:"-"`
+	TcpMappingEntity
 }
 
-type TcpRouteMappingEntity struct {
-	TcpRoute
+type TcpMappingEntity struct {
+	RouterGroupGuid string `json:"router_group_guid"`
 	HostPort        uint16 `gorm:"not null; unique_index:idx_tcp_route; type:int" json:"backend_port"`
 	HostIP          string `gorm:"not null; unique_index:idx_tcp_route" json:"backend_ip"`
+	ExternalPort    uint16 `gorm:"not null; unique_index:idx_tcp_route; type: int" json:"port"`
 	ModificationTag `json:"modification_tag"`
 	TTL             *int `json:"ttl,omitempty"`
 }
 
-type Model struct {
-	Guid      string `gorm:"primary_key"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
-}
+func NewTcpRouteMappingWithModel(tcpMapping TcpRouteMapping) (TcpRouteMapping, error) {
+	guid, err := uuid.NewV4()
+	if err != nil {
+		return TcpRouteMapping{}, err
+	}
 
-type TcpRoute struct {
-	RouterGroupGuid string `json:"router_group_guid"`
-	ExternalPort    uint16 `gorm:"not null; unique_index:idx_tcp_route; type: int" json:"port"`
+	m := Model{Guid: guid.String()}
+	return TcpRouteMapping{
+		ExpiresAt:        time.Now().Add(time.Duration(*tcpMapping.TTL) * time.Second),
+		Model:            m,
+		TcpMappingEntity: tcpMapping.TcpMappingEntity,
+	}, nil
 }
 
 func NewTcpRouteMapping(routerGroupGuid string, externalPort uint16, hostIP string, hostPort uint16, ttl int) TcpRouteMapping {
-	guid, _ := uuid.NewV4()
-
-	m := Model{Guid: guid.String()}
-	mapping := TcpRouteMappingEntity{
-		TcpRoute: TcpRoute{RouterGroupGuid: routerGroupGuid, ExternalPort: externalPort},
-		HostPort: hostPort,
-		HostIP:   hostIP,
-		TTL:      &ttl,
+	mapping := TcpMappingEntity{
+		RouterGroupGuid: routerGroupGuid,
+		ExternalPort:    externalPort,
+		HostPort:        hostPort,
+		HostIP:          hostIP,
+		TTL:             &ttl,
 	}
 	return TcpRouteMapping{
-		ExpiresAt: time.Now().Add(time.Duration(ttl) * time.Second),
-		Model:     m,
-		TcpRouteMappingEntity: mapping,
+		TcpMappingEntity: mapping,
 	}
 }
 
