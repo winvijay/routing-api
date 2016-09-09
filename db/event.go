@@ -66,8 +66,11 @@ func NewEventFromEtcd(event *client.Response) (Event, error) {
 		return Event{}, fmt.Errorf("unknown event: %s", event.Action)
 	}
 
-	return Event{
-		Type:  eventType,
-		Value: node.Value,
-	}, nil
+	newEvent := Event{Type: eventType}
+
+	if node != nil {
+		newEvent.Value = node.Value
+	}
+
+	return newEvent, nil
 }

@@ -17,8 +17,9 @@ import (
 )
 
 type SqlDB struct {
-	Client      Client
-	tcpEventHub eventhub.Hub
+	Client       Client
+	tcpEventHub  eventhub.Hub
+	httpEventHub eventhub.Hub
 }
 
 const DeleteError = "Delete Fails: TCP Route Mapping does not exist"
@@ -44,7 +45,8 @@ func NewSqlDB(cfg *config.SqlDB) (DB, error) {
 	db.AutoMigrate(&models.RouterGroupDB{}, &models.TcpRouteMapping{})
 
 	tcpEventHub := eventhub.NewNonBlocking(1024)
-	return &SqlDB{Client: db, tcpEventHub: tcpEventHub}, nil
+	httpEventHub := eventhub.NewNonBlocking(1024)
+	return &SqlDB{Client: db, tcpEventHub: tcpEventHub, httpEventHub: httpEventHub}, nil
 }
 
 func (s *SqlDB) ReadRouterGroups() (models.RouterGroups, error) {
@@ -231,23 +233,38 @@ func (s *SqlDB) Connect() error {
 	return notImplementedError()
 }
 
-func (s *SqlDB) CancelWatches() {}
+func (s *SqlDB) CancelWatches() {
+	// This only errors if the eventhub was closed.
+	_ = s.tcpEventHub.Close()
+	_ = s.httpEventHub.Close()
+}
 
 func (s *SqlDB) WatchRouteChanges(watchType string) (<-chan Event, <-chan error, context.CancelFunc) {
-	var sub eventhub.Source
+	var (
+		sub eventhub.Source
+		err error
+	)
 	events := make(chan Event)
 	errors := make(chan error, 1)
 	cancelFunc := func() {}
 
 	switch watchType {
 	case TCP_WATCH:
-		sub, _ = s.tcpEventHub.Subscribe()
-		// if err != nil {
-		// errors <- err
-		// close(events)
-		// close(errors)
-		// return events, errors, cancelFunc
-		// }
+		sub, err = s.tcpEventHub.Subscribe()
+		if err != nil {
+			errors <- err
+			close(events)
+			close(errors)
+			return events, errors, cancelFunc
+		}
+	case HTTP_WATCH:
+		sub, err = s.httpEventHub.Subscribe()
+		if err != nil {
+			errors <- err
+			close(events)
+			close(errors)
+			return events, errors, cancelFunc
+		}
 	default:
 		err := fmt.Errorf("Invalid watch type: %s", watchType)
 		errors <- err
@@ -271,16 +288,15 @@ func dispatchWatchEvents(sub eventhub.Source, events chan<- Event, errors chan<-
 	for {
 		event, err := sub.Next()
 		if err != nil {
-			if err != eventhub.ErrReadFromClosedSource {
-				errors <- err
+			if err == eventhub.ErrReadFromClosedSource {
+				return
 			}
-			return
+			errors <- err
 		}
-		watchEvent, _ := event.(Event)
-		// if !ok {
-		// 	errors <- fmt.Errorf("Incoming event is not a db.Event: %#v", event)
-		// 	return
-		// }
+		watchEvent, ok := event.(Event)
+		if !ok {
+			errors <- fmt.Errorf("Incoming event is not a db.Event: %#v", event)
+		}
 		events <- watchEvent
 	}
 }

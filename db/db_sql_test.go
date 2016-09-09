@@ -35,8 +35,11 @@ var _ = Describe("SqlDB", func() {
 	})
 
 	AfterEach(func() {
-		Expect(sqlDB.Client.Delete(&models.RouterGroupDB{}).Error).ToNot(HaveOccurred())
-		Expect(sqlDB.Client.Delete(&models.TcpRouteMapping{}).Error).ToNot(HaveOccurred())
+		_, ok := sqlDB.Client.(*gorm.DB)
+		if ok {
+			Expect(sqlDB.Client.Delete(&models.TcpRouteMapping{}).Error).ToNot(HaveOccurred())
+			Expect(sqlDB.Client.Delete(&models.RouterGroupDB{}).Error).ToNot(HaveOccurred())
+		}
 	})
 
 	Describe("Connection", func() {
@@ -488,25 +491,6 @@ var _ = Describe("SqlDB", func() {
 	// 		})
 	// 	})
 
-	// 	Context("when a route is upserted", func() {
-	// 		It("should return an update watch event", func() {
-	// 			results, _, _ := etcd.WatchRouteChanges(db.HTTP_WATCH)
-
-	// 			err := etcd.SaveRoute(route)
-	// 			Expect(err).NotTo(HaveOccurred())
-
-	// 			var event db.Event
-	// 			Eventually(results).Should((Receive(&event)))
-	// 			Expect(event).NotTo(BeNil())
-	// 			Expect(event.Type).To(Equal(db.CreateEvent))
-
-	// 			By("when tcp route is upserted")
-	// 			err = etcd.SaveTcpRouteMapping(tcpRouteMapping1)
-	// 			Expect(err).NotTo(HaveOccurred())
-	// 			Consistently(results).ShouldNot(Receive())
-	// 		})
-	// 	})
-
 	// 	Context("when a route is expired", func() {
 	// 		It("should return an expire watch event", func() {
 	// 			*route.TTL = 1
@@ -523,7 +507,7 @@ var _ = Describe("SqlDB", func() {
 	// 	})
 	// })
 
-	FDescribe("WatchRouteChanges with tcp events", func() {
+	Describe("WatchRouteChanges with tcp events", func() {
 		var (
 			routerGroupId string
 		)
@@ -609,8 +593,81 @@ var _ = Describe("SqlDB", func() {
 				Expect(event.Value).To(ContainSubstring(`"port":3057`))
 			})
 		})
+
+		Context("Cancel Watches", func() {
+			It("cancels any in-flight watches", func() {
+				results, err, _ := sqlDB.WatchRouteChanges(db.TCP_WATCH)
+				results2, err2, _ := sqlDB.WatchRouteChanges(db.TCP_WATCH)
+
+				sqlDB.CancelWatches()
+
+				Eventually(err).Should(BeClosed())
+				Eventually(results).Should(BeClosed())
+				Eventually(err2).Should(BeClosed())
+				Eventually(results2).Should(BeClosed())
+			})
+
+			It("doesn't panic when called twice", func() {
+				sqlDB.CancelWatches()
+				sqlDB.CancelWatches()
+			})
+
+			It("causes subsequent calls to WatchRouteChanges to error", func() {
+				sqlDB.CancelWatches()
+
+				event, err, _ := sqlDB.WatchRouteChanges(db.TCP_WATCH)
+				Eventually(err).ShouldNot(Receive())
+				Eventually(err).Should(BeClosed())
+
+				Consistently(event).ShouldNot(Receive())
+				Eventually(event).Should(BeClosed())
+
+			})
+		})
 	})
 
+	Describe("WatchRouteChanges with http events", func() {
+		var (
+			routerGroupId string
+		)
+
+		BeforeEach(func() {
+			routerGroupId = newUuid()
+		})
+
+		It("does not return an error when canceled", func() {
+			_, errors, cancel := sqlDB.WatchRouteChanges(db.HTTP_WATCH)
+			cancel()
+			Consistently(errors).ShouldNot(Receive())
+			Eventually(errors).Should(BeClosed())
+		})
+
+		Context("Cancel Watches", func() {
+			It("cancels any in-flight watches", func() {
+				results, err, _ := sqlDB.WatchRouteChanges(db.HTTP_WATCH)
+				results2, err2, _ := sqlDB.WatchRouteChanges(db.HTTP_WATCH)
+
+				sqlDB.CancelWatches()
+
+				Eventually(err).Should(BeClosed())
+				Eventually(results).Should(BeClosed())
+				Eventually(err2).Should(BeClosed())
+				Eventually(results2).Should(BeClosed())
+			})
+
+			It("causes subsequent calls to WatchRouteChanges to error", func() {
+				sqlDB.CancelWatches()
+
+				event, err, _ := sqlDB.WatchRouteChanges(db.HTTP_WATCH)
+				Eventually(err).ShouldNot(Receive())
+				Eventually(err).Should(BeClosed())
+
+				Consistently(event).ShouldNot(Receive())
+				Eventually(event).Should(BeClosed())
+
+			})
+		})
+	})
 	Describe("Methods not implemented", func() {
 		It("returns an error", func() {
 			err := sqlDB.SaveRoute(models.Route{})
