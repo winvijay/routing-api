@@ -34,6 +34,11 @@ var _ = Describe("SqlDB", func() {
 		sqlDB = dbSQL.(*db.SqlDB)
 	})
 
+	AfterEach(func() {
+		Expect(sqlDB.Client.Delete(&models.RouterGroupDB{}).Error).ToNot(HaveOccurred())
+		Expect(sqlDB.Client.Delete(&models.TcpRouteMapping{}).Error).ToNot(HaveOccurred())
+	})
+
 	Describe("Connection", func() {
 		var sqlDB db.DB
 		JustBeforeEach(func() {
@@ -464,6 +469,144 @@ var _ = Describe("SqlDB", func() {
 			It("returns an error", func() {
 				Expect(err).To(HaveOccurred())
 				Expect(err).Should(MatchError(db.DeleteError))
+			})
+		})
+	})
+
+	// Describe("WatchRouteChanges with http events", func() {
+	// 	Context("Cancel Watches", func() {
+	// 		It("cancels any in-flight watches", func() {
+	// 			results, err, _ := etcd.WatchRouteChanges(db.HTTP_WATCH)
+	// 			results2, err2, _ := etcd.WatchRouteChanges(db.HTTP_WATCH)
+
+	// 			etcd.CancelWatches()
+
+	// 			Eventually(err).Should(BeClosed())
+	// 			Eventually(err2).Should(BeClosed())
+	// 			Eventually(results).Should(BeClosed())
+	// 			Eventually(results2).Should(BeClosed())
+	// 		})
+	// 	})
+
+	// 	Context("when a route is upserted", func() {
+	// 		It("should return an update watch event", func() {
+	// 			results, _, _ := etcd.WatchRouteChanges(db.HTTP_WATCH)
+
+	// 			err := etcd.SaveRoute(route)
+	// 			Expect(err).NotTo(HaveOccurred())
+
+	// 			var event db.Event
+	// 			Eventually(results).Should((Receive(&event)))
+	// 			Expect(event).NotTo(BeNil())
+	// 			Expect(event.Type).To(Equal(db.CreateEvent))
+
+	// 			By("when tcp route is upserted")
+	// 			err = etcd.SaveTcpRouteMapping(tcpRouteMapping1)
+	// 			Expect(err).NotTo(HaveOccurred())
+	// 			Consistently(results).ShouldNot(Receive())
+	// 		})
+	// 	})
+
+	// 	Context("when a route is expired", func() {
+	// 		It("should return an expire watch event", func() {
+	// 			*route.TTL = 1
+	// 			err := etcd.SaveRoute(route)
+	// 			Expect(err).NotTo(HaveOccurred())
+	// 			results, _, _ := etcd.WatchRouteChanges(db.HTTP_WATCH)
+
+	// 			time.Sleep(1 * time.Second)
+	// 			var event db.Event
+	// 			Eventually(results).Should((Receive(&event)))
+	// 			Expect(event).NotTo(BeNil())
+	// 			Expect(event.Type).To(Equal(db.ExpireEvent))
+	// 		})
+	// 	})
+	// })
+
+	FDescribe("WatchRouteChanges with tcp events", func() {
+		var (
+			routerGroupId string
+		)
+
+		BeforeEach(func() {
+			routerGroupId = newUuid()
+		})
+
+		It("does not return an error when canceled", func() {
+			_, errors, cancel := sqlDB.WatchRouteChanges(db.TCP_WATCH)
+			cancel()
+			Consistently(errors).ShouldNot(Receive())
+			Eventually(errors).Should(BeClosed())
+		})
+
+		Context("with wrong event type", func() {
+			It("throws an error", func() {
+				event, err, _ := sqlDB.WatchRouteChanges("some-random-key")
+				Eventually(err).Should(Receive())
+				Eventually(err).Should(BeClosed())
+
+				Consistently(event).ShouldNot(Receive())
+				Eventually(event).Should(BeClosed())
+			})
+		})
+
+		Context("when a tcp route is updated", func() {
+			var (
+				tcpRoute models.TcpRouteMapping
+			)
+
+			BeforeEach(func() {
+				tcpRoute = models.NewTcpRouteMapping(routerGroupId, 3057, "127.0.0.1", 2990, 50)
+				err = sqlDB.SaveTcpRouteMapping(tcpRoute)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should return an update watch event", func() {
+				results, _, _ := sqlDB.WatchRouteChanges(db.TCP_WATCH)
+
+				err = sqlDB.SaveTcpRouteMapping(tcpRoute)
+				Expect(err).NotTo(HaveOccurred())
+
+				var event db.Event
+				Eventually(results).Should((Receive(&event)))
+				Expect(event).NotTo(BeNil())
+				Expect(event.Type).To(Equal(db.UpdateEvent))
+				Expect(event.Value).To(ContainSubstring(`"port":3057`))
+			})
+		})
+
+		Context("when a tcp route is created", func() {
+			It("should return an create watch event", func() {
+				results, _, _ := sqlDB.WatchRouteChanges(db.TCP_WATCH)
+
+				tcpRoute := models.NewTcpRouteMapping(routerGroupId, 3057, "127.0.0.1", 2990, 50)
+				err = sqlDB.SaveTcpRouteMapping(tcpRoute)
+				Expect(err).NotTo(HaveOccurred())
+
+				var event db.Event
+				Eventually(results).Should((Receive(&event)))
+				Expect(event).NotTo(BeNil())
+				Expect(event.Type).To(Equal(db.CreateEvent))
+				Expect(event.Value).To(ContainSubstring(`"port":3057`))
+			})
+		})
+
+		Context("when a route is deleted", func() {
+			It("should return an delete watch event", func() {
+				tcpRoute := models.NewTcpRouteMapping(routerGroupId, 3057, "127.0.0.1", 2990, 50)
+				err := sqlDB.SaveTcpRouteMapping(tcpRoute)
+				Expect(err).NotTo(HaveOccurred())
+
+				results, _, _ := sqlDB.WatchRouteChanges(db.TCP_WATCH)
+
+				err = sqlDB.DeleteTcpRouteMapping(tcpRoute)
+				Expect(err).NotTo(HaveOccurred())
+
+				var event db.Event
+				Eventually(results).Should((Receive(&event)))
+				Expect(event).NotTo(BeNil())
+				Expect(event.Type).To(Equal(db.DeleteEvent))
+				Expect(event.Value).To(ContainSubstring(`"port":3057`))
 			})
 		})
 	})

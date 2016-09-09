@@ -291,7 +291,7 @@ var _ = Describe("Routes API", func() {
 			})
 		})
 	}
-	TestTCPRoutes := func(useEtcd bool) {
+	TestTCPRoutes := func() {
 		Context("TCP Routes", func() {
 			var (
 				routerGroupGuid string
@@ -327,10 +327,6 @@ var _ = Describe("Routes API", func() {
 						mappings := TcpRouteMappings(tcpRouteMappingsResponse)
 						return mappings.Contains(tcpRouteMapping2)
 					}, 3, 1).Should(BeFalse())
-
-					if !useEtcd {
-						ensureETCDIsEmpty(db.TCP_MAPPING_BASE_KEY)
-					}
 				})
 			})
 
@@ -363,10 +359,6 @@ var _ = Describe("Routes API", func() {
 					Expect(err).NotTo(HaveOccurred())
 					Expect(tcpRouteMappingsResponse).NotTo(BeNil())
 					Expect(tcpRouteMappingsResponse).NotTo(ConsistOf(tcpRouteMappings))
-
-					if !useEtcd {
-						ensureETCDIsEmpty(db.TCP_MAPPING_BASE_KEY)
-					}
 				})
 			})
 
@@ -392,16 +384,12 @@ var _ = Describe("Routes API", func() {
 					Expect(err).NotTo(HaveOccurred())
 					Expect(tcpRouteMappingsResponse).NotTo(BeNil())
 					Expect(TcpRouteMappings(tcpRouteMappingsResponse).ContainsAll(tcpRouteMappings...)).To(BeTrue())
-
-					if !useEtcd {
-						ensureETCDIsEmpty(db.TCP_MAPPING_BASE_KEY)
-					}
 				})
 			})
 		})
 	}
 
-	TestRouterGroups := func(useEtcd bool) {
+	TestRouterGroups := func() {
 		Context("Router Groups", func() {
 			Context("GET (LIST)", func() {
 				It("returns seeded router groups", func() {
@@ -417,10 +405,6 @@ var _ = Describe("Routes API", func() {
 					Expect(routerGroups[0].Name).To(Equal(DefaultRouterGroupName))
 					Expect(routerGroups[0].Type).To(Equal(models.RouterGroupType("tcp")))
 					Expect(routerGroups[0].ReservablePorts).To(Equal(models.ReservablePorts("1024-65535")))
-
-					if !useEtcd {
-						ensureETCDIsEmpty(db.ROUTER_GROUP_BASE_KEY)
-					}
 				})
 			})
 
@@ -444,10 +428,6 @@ var _ = Describe("Routes API", func() {
 					Expect(err).NotTo(HaveOccurred())
 					Expect(len(routerGroups)).To(Equal(1))
 					Expect(routerGroups[0].ReservablePorts).To(Equal(models.ReservablePorts("6000-8000")))
-
-					if !useEtcd {
-						ensureETCDIsEmpty(db.ROUTER_GROUP_BASE_KEY)
-					}
 				})
 			})
 		})
@@ -492,13 +472,17 @@ var _ = Describe("Routes API", func() {
 		})
 
 		AfterEach(func() {
+			ensureETCDIsEmpty(db.TCP_MAPPING_BASE_KEY)
+			ensureETCDIsEmpty(db.ROUTER_GROUP_BASE_KEY)
+
 			ginkgomon.Kill(routingAPIProcess)
 			cleanupSQLRouterGroups()
 			cleanupSQLTCPRouteMappings()
 		})
 
-		TestRouterGroups(false)
-		TestTCPRoutes(false)
+		TestRouterGroups()
+		TestTCPRoutes()
+		TestTCPEvents()
 	})
 
 	Describe("API with ETCD Only", func() {
@@ -513,10 +497,10 @@ var _ = Describe("Routes API", func() {
 			ginkgomon.Kill(routingAPIProcess)
 		})
 
-		TestTCPEvents()
 		TestHTTPEvents()
 		TestHTTPRoutes()
-		TestTCPRoutes(true)
-		TestRouterGroups(true)
+		TestTCPRoutes()
+		TestTCPEvents()
+		TestRouterGroups()
 	})
 })

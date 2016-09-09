@@ -345,7 +345,7 @@ func (e *etcd) dispatchWatchEvents(cxt context.Context, key string, events chan<
 			return
 		}
 
-		event, err := NewEvent(resp)
+		event, err := NewEventFromEtcd(resp)
 		if err != nil {
 			errors <- err
 			return
