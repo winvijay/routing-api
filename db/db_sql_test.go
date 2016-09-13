@@ -2,7 +2,11 @@ package db_test
 
 import (
 	"errors"
+	"os"
+	"time"
 
+	"code.cloudfoundry.org/lager"
+	"code.cloudfoundry.org/lager/lagertest"
 	"code.cloudfoundry.org/routing-api/config"
 	"code.cloudfoundry.org/routing-api/db"
 	"code.cloudfoundry.org/routing-api/db/fakes"
@@ -13,6 +17,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gbytes"
 )
 
 var _ = Describe("SqlDB", func() {
@@ -101,7 +106,7 @@ var _ = Describe("SqlDB", func() {
 		Context("when there are router groups", func() {
 			BeforeEach(func() {
 				rg = models.RouterGroupDB{
-					Guid:            newUuid(),
+					Model:           models.Model{Guid: newUuid()},
 					Name:            "rg-1",
 					Type:            "tcp",
 					ReservablePorts: "120",
@@ -116,8 +121,8 @@ var _ = Describe("SqlDB", func() {
 			It("returns list of router groups", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(routerGroups).ToNot(BeNil())
-				Expect(len(routerGroups)).To(BeNumerically(">", 0))
-				Expect(routerGroups).Should(ContainElement(rg.ToRouterGroup()))
+				Expect(routerGroups).To(HaveLen(1))
+				Expect(routerGroups[0]).Should(matchers.MatchRouterGroup(rg.ToRouterGroup()))
 			})
 		})
 
@@ -162,7 +167,7 @@ var _ = Describe("SqlDB", func() {
 			BeforeEach(func() {
 				routerGroupId = newUuid()
 				rg = models.RouterGroupDB{
-					Guid:            routerGroupId,
+					Model:           models.Model{Guid: routerGroupId},
 					Name:            "rg-1",
 					Type:            "tcp",
 					ReservablePorts: "120",
@@ -218,7 +223,7 @@ var _ = Describe("SqlDB", func() {
 		Context("when router group exists", func() {
 			BeforeEach(func() {
 				sqlDB.Client.Create(&models.RouterGroupDB{
-					Guid:            routerGroupId,
+					Model:           models.Model{Guid: routerGroupId},
 					Name:            "rg-1",
 					Type:            "tcp",
 					ReservablePorts: "120",
@@ -227,7 +232,7 @@ var _ = Describe("SqlDB", func() {
 
 			AfterEach(func() {
 				sqlDB.Client.Delete(&models.RouterGroupDB{
-					Guid: routerGroupId,
+					Model: models.Model{Guid: routerGroupId},
 				})
 			})
 
@@ -668,6 +673,81 @@ var _ = Describe("SqlDB", func() {
 			})
 		})
 	})
+
+	Describe("Cleanup routes", func() {
+		var (
+			logger        lager.Logger
+			signals       = make(chan os.Signal, 1)
+			tcpRouteModel models.TcpRouteMapping
+		)
+		BeforeEach(func() {
+			tcpRoute := models.NewTcpRouteMapping("guid", 3555, "127.0.0.1", 7879, 1)
+			tcpRouteModel, err := models.NewTcpRouteMappingWithModel(tcpRoute)
+			Expect(err).ToNot(HaveOccurred())
+			sqlDB.SaveTcpRouteMapping(tcpRouteModel)
+
+			routes, err := sqlDB.ReadTcpRouteMappings()
+			Expect(routes).To(HaveLen(1))
+			logger = lagertest.NewTestLogger("prune")
+			go sqlDB.CleanupRoutes(logger, 100*time.Millisecond, signals)
+		})
+
+		AfterEach(func() {
+			signals <- os.Interrupt
+		})
+
+		Context("when db connection is successful", func() {
+			Context("when routes have expired", func() {
+
+				It("should prune the expired routes", func() {
+					Eventually(func() []models.TcpRouteMapping {
+						var tcpRoutes []models.TcpRouteMapping
+						err := sqlDB.Client.Where("host_ip = ?", "127.0.0.1").Find(&tcpRoutes).Error
+						Expect(err).ToNot(HaveOccurred())
+						return tcpRoutes
+					}, 2).Should(HaveLen(0))
+				})
+
+				It("should log the number of pruned routes", func() {
+					Eventually(logger, 2).Should(gbytes.Say(`prune.successfully-finished-pruning","log_level":1,"data":{"rowsAffected":1}`))
+				})
+			})
+
+			Context("when no expired routes exist", func() {
+				BeforeEach(func() {
+					newTTL := 100
+					tcpRouteModel.TTL = &newTTL
+					sqlDB.SaveTcpRouteMapping(tcpRouteModel)
+				})
+
+				It("should  not prune any routes", func() {
+					Consistently(func() []models.TcpRouteMapping {
+						var tcpRoutes []models.TcpRouteMapping
+						err := sqlDB.Client.Where("host_ip = ?", "127.0.0.1").Find(&tcpRoutes).Error
+						Expect(err).ToNot(HaveOccurred())
+						return tcpRoutes
+					}).Should(HaveLen(1))
+				})
+			})
+		})
+
+		Context("when db throws an error", func() {
+			BeforeEach(func() {
+				sqlDB.Client.Close()
+			})
+
+			AfterEach(func() {
+				dbSQL, err := db.NewSqlDB(sqlCfg)
+				Expect(err).ToNot(HaveOccurred())
+				sqlDB = dbSQL.(*db.SqlDB)
+			})
+
+			It("logs error message", func() {
+				Eventually(logger).Should(gbytes.Say(`failed-to-prune-routes","log_level":2,"data":{"error":"sql: database is closed"}`))
+			})
+		})
+	})
+
 	Describe("Methods not implemented", func() {
 		It("returns an error", func() {
 			err := sqlDB.SaveRoute(models.Route{})

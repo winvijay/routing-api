@@ -3,12 +3,14 @@ package db
 import (
 	"errors"
 	"fmt"
+	"os"
 	"runtime"
 	"time"
 
 	"github.com/coreos/etcd/Godeps/_workspace/src/golang.org/x/net/context"
 
 	"code.cloudfoundry.org/eventhub"
+	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/routing-api/config"
 	"code.cloudfoundry.org/routing-api/models"
 
@@ -46,7 +48,25 @@ func NewSqlDB(cfg *config.SqlDB) (DB, error) {
 
 	tcpEventHub := eventhub.NewNonBlocking(1024)
 	httpEventHub := eventhub.NewNonBlocking(1024)
+
 	return &SqlDB{Client: db, tcpEventHub: tcpEventHub, httpEventHub: httpEventHub}, nil
+}
+
+func (s *SqlDB) CleanupRoutes(logger lager.Logger, pruningInterval time.Duration, signals <-chan os.Signal) {
+	pruningTicker := time.NewTicker(pruningInterval)
+	for {
+		select {
+		case <-pruningTicker.C:
+			db := s.Client.Where("expires_at < ?", time.Now()).Delete(models.TcpRouteMapping{})
+			if db.Error != nil {
+				logger.Error("failed-to-prune-routes", db.Error)
+			} else {
+				logger.Info("successfully-finished-pruning", lager.Data{"rowsAffected": db.RowsAffected})
+			}
+		case <-signals:
+			return
+		}
+	}
 }
 
 func (s *SqlDB) ReadRouterGroups() (models.RouterGroups, error) {

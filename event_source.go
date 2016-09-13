@@ -2,7 +2,6 @@ package routing_api
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"code.cloudfoundry.org/routing-api/models"
 	trace "code.cloudfoundry.org/trace-logger"
