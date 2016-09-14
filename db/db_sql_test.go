@@ -482,37 +482,6 @@ var _ = Describe("SqlDB", func() {
 		})
 	})
 
-	// Describe("WatchRouteChanges with http events", func() {
-	// 	Context("Cancel Watches", func() {
-	// 		It("cancels any in-flight watches", func() {
-	// 			results, err, _ := etcd.WatchRouteChanges(db.HTTP_WATCH)
-	// 			results2, err2, _ := etcd.WatchRouteChanges(db.HTTP_WATCH)
-
-	// 			etcd.CancelWatches()
-
-	// 			Eventually(err).Should(BeClosed())
-	// 			Eventually(err2).Should(BeClosed())
-	// 			Eventually(results).Should(BeClosed())
-	// 			Eventually(results2).Should(BeClosed())
-	// 		})
-	// 	})
-
-	// 	Context("when a route is expired", func() {
-	// 		It("should return an expire watch event", func() {
-	// 			*route.TTL = 1
-	// 			err := etcd.SaveRoute(route)
-	// 			Expect(err).NotTo(HaveOccurred())
-	// 			results, _, _ := etcd.WatchRouteChanges(db.HTTP_WATCH)
-
-	// 			time.Sleep(1 * time.Second)
-	// 			var event db.Event
-	// 			Eventually(results).Should((Receive(&event)))
-	// 			Expect(event).NotTo(BeNil())
-	// 			Expect(event.Type).To(Equal(db.ExpireEvent))
-	// 		})
-	// 	})
-	// })
-
 	Describe("SaveRoute", func() {
 		var (
 			httpRoute models.Route
@@ -865,6 +834,66 @@ var _ = Describe("SqlDB", func() {
 			cancel()
 			Consistently(errors).ShouldNot(Receive())
 			Eventually(errors).Should(BeClosed())
+		})
+
+		Context("when a http route is updated", func() {
+			var (
+				httpRoute models.Route
+			)
+
+			BeforeEach(func() {
+				httpRoute = models.NewRoute("post_here", 7001, "127.0.0.1", "my-guid", "https://rs.com", 5)
+				err = sqlDB.SaveRoute(httpRoute)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should return an update watch event", func() {
+				results, _, _ := sqlDB.WatchRouteChanges(db.HTTP_WATCH)
+
+				err = sqlDB.SaveRoute(httpRoute)
+				Expect(err).NotTo(HaveOccurred())
+
+				var event db.Event
+				Eventually(results).Should((Receive(&event)))
+				Expect(event).NotTo(BeNil())
+				Expect(event.Type).To(Equal(db.UpdateEvent))
+				Expect(event.Value).To(ContainSubstring(`"port":7001`))
+			})
+		})
+
+		Context("when a http route is created", func() {
+			It("should return an create watch event", func() {
+				results, _, _ := sqlDB.WatchRouteChanges(db.HTTP_WATCH)
+
+				httpRoute := models.NewRoute("post_here", 7002, "127.0.0.1", "my-guid", "https://rs.com", 5)
+				err := sqlDB.SaveRoute(httpRoute)
+				Expect(err).NotTo(HaveOccurred())
+
+				var event db.Event
+				Eventually(results).Should((Receive(&event)))
+				Expect(event).NotTo(BeNil())
+				Expect(event.Type).To(Equal(db.CreateEvent))
+				Expect(event.Value).To(ContainSubstring(`"port":7002`))
+			})
+		})
+
+		Context("when a http route is deleted", func() {
+			It("should return an delete watch event", func() {
+				httpRoute := models.NewRoute("post_here", 7003, "127.0.0.1", "my-guid", "https://rs.com", 5)
+				err := sqlDB.SaveRoute(httpRoute)
+				Expect(err).NotTo(HaveOccurred())
+
+				results, _, _ := sqlDB.WatchRouteChanges(db.HTTP_WATCH)
+
+				err = sqlDB.DeleteRoute(httpRoute)
+				Expect(err).NotTo(HaveOccurred())
+
+				var event db.Event
+				Eventually(results).Should((Receive(&event)))
+				Expect(event).NotTo(BeNil())
+				Expect(event.Type).To(Equal(db.DeleteEvent))
+				Expect(event.Value).To(ContainSubstring(`"port":7003`))
+			})
 		})
 
 		Context("Cancel Watches", func() {

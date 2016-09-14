@@ -24,7 +24,7 @@ type SqlDB struct {
 	httpEventHub eventhub.Hub
 }
 
-const DeleteError = "Delete Fails: TCP Route Mapping does not exist"
+const DeleteError = "Delete Fails: Route does not exist"
 
 var _ DB = &SqlDB{}
 
@@ -135,6 +135,7 @@ func updateTcpRouteMapping(existingTcpRouteMapping models.TcpRouteMapping, curre
 
 	return existingTcpRouteMapping
 }
+
 func updateRoute(existingRoute, currentRoute models.Route) models.Route {
 	existingRoute.ModificationTag.Increment()
 	if currentRoute.TTL != nil {
@@ -184,6 +185,7 @@ func (s *SqlDB) readRoute(route models.Route) (models.Route, error) {
 	}
 	return models.Route{}, nil
 }
+
 func (s *SqlDB) SaveRoute(route models.Route) error {
 	existingRoute, err := s.readRoute(route)
 	if err != nil {
@@ -192,11 +194,11 @@ func (s *SqlDB) SaveRoute(route models.Route) error {
 
 	if existingRoute != (models.Route{}) {
 		newRoute := updateRoute(existingRoute, route)
-		return s.Client.Save(&newRoute).Error
-		// if err != nil {
-		// 	return err
-		// }
-		// return s.emitEvent(UpdateEvent, newRoute)
+		err = s.Client.Save(&newRoute).Error
+		if err != nil {
+			return err
+		}
+		return s.emitEvent(UpdateEvent, newRoute)
 	}
 
 	newRoute, err := models.NewRouteWithModel(route)
@@ -210,8 +212,13 @@ func (s *SqlDB) SaveRoute(route models.Route) error {
 	}
 	newRoute.ModificationTag = tag
 
-	return s.Client.Create(&newRoute).Error
+	err = s.Client.Create(&newRoute).Error
+	if err != nil {
+		return err
+	}
+	return s.emitEvent(CreateEvent, newRoute)
 }
+
 func (s *SqlDB) DeleteRoute(route models.Route) error {
 	route, err := s.readRoute(route)
 	if err != nil {
@@ -225,15 +232,7 @@ func (s *SqlDB) DeleteRoute(route models.Route) error {
 	if err != nil {
 		return err
 	}
-	return nil
-
-	// event, err := NewEventFromInterface(DeleteEvent, route)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// s.tcpEventHub.Emit(event)
-	// return nil
+	return s.emitEvent(DeleteEvent, route)
 }
 
 func (s *SqlDB) ReadTcpRouteMappings() ([]models.TcpRouteMapping, error) {
@@ -272,7 +271,14 @@ func (s *SqlDB) emitEvent(eventType EventType, obj interface{}) error {
 		return err
 	}
 
-	s.tcpEventHub.Emit(event)
+	switch obj.(type) {
+	case models.Route:
+		s.httpEventHub.Emit(event)
+	case models.TcpRouteMapping:
+		s.tcpEventHub.Emit(event)
+	default:
+		return errors.New("Unknown event type")
+	}
 	return nil
 }
 
@@ -323,14 +329,7 @@ func (s *SqlDB) DeleteTcpRouteMapping(tcpMapping models.TcpRouteMapping) error {
 	if err != nil {
 		return err
 	}
-
-	event, err := NewEventFromInterface(DeleteEvent, tcpMapping)
-	if err != nil {
-		return err
-	}
-
-	s.tcpEventHub.Emit(event)
-	return nil
+	return s.emitEvent(DeleteEvent, tcpMapping)
 }
 
 func (s *SqlDB) Connect() error {
