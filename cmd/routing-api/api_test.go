@@ -113,7 +113,7 @@ var _ = Describe("Routes API", func() {
 				Expect(event.TcpRouteMapping).To(matchers.MatchTcpRoute(expectedEvent.TcpRouteMapping))
 			}, 5.0)
 
-			XIt("gets events for expired routes", func(done Done) {
+			It("gets events for expired routes", func(done Done) {
 				defer close(done)
 				routeExpire := models.NewTcpRouteMapping(routerGroupGuid, 3000, "1.1.1.1", 1234, 1)
 
@@ -502,6 +502,7 @@ var _ = Describe("Routes API", func() {
 		TestTCPRoutes()
 		TestTCPEvents()
 		TestHTTPRoutes()
+		TestHTTPEvents()
 	})
 
 	Describe("API with ETCD Only", func() {
