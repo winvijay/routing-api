@@ -16,7 +16,7 @@ import (
 var etcdVersion = "etcdserver\":\"2.1.1"
 
 type DbAllocator interface {
-	Create(args ...int) (string, error)
+	Create() (string, error)
 	Reset(id string) error
 	Delete(id string) error
 }
@@ -30,15 +30,16 @@ func NewMySQLAllocator() DbAllocator {
 }
 
 type etcdAllocator struct {
+	port        int
 	etcdAdapter storeadapter.StoreAdapter
 	etcdRunner  *etcdstorerunner.ETCDClusterRunner
 }
 
-func NewEtcdAllocator() DbAllocator {
-	return &etcdAllocator{}
+func NewEtcdAllocator(port int) DbAllocator {
+	return &etcdAllocator{port: port}
 }
 
-func (a *mysqlAllocator) Create(args ...int) (string, error) {
+func (a *mysqlAllocator) Create() (string, error) {
 	var err error
 	sqlDBName := fmt.Sprintf("test%d", rand.Int())
 	a.sqlDB, err = sql.Open("mysql", "root:password@/")
@@ -74,8 +75,8 @@ func (a *mysqlAllocator) Delete(id string) error {
 	return err
 }
 
-func (e *etcdAllocator) Create(args ...int) (string, error) {
-	e.etcdRunner = etcdstorerunner.NewETCDClusterRunner(args[0], 1, nil)
+func (e *etcdAllocator) Create() (string, error) {
+	e.etcdRunner = etcdstorerunner.NewETCDClusterRunner(e.port, 1, nil)
 	e.etcdRunner.Start()
 
 	etcdVersionUrl := e.etcdRunner.NodeURLS()[0] + "/version"
@@ -96,7 +97,9 @@ func (e *etcdAllocator) Create(args ...int) (string, error) {
 	}
 
 	e.etcdAdapter = e.etcdRunner.Adapter(nil)
-	return "", nil
+
+	etcdUrl := fmt.Sprintf("http://127.0.0.1:%d", e.port)
+	return etcdUrl, nil
 }
 
 func (e *etcdAllocator) Reset(id string) error {

@@ -65,14 +65,15 @@ var _ = SynchronizedBeforeSuite(
 		var err error
 		routingAPIBinPath = string(routingAPIBin)
 		SetDefaultEventuallyTimeout(15 * time.Second)
+		etcdPort = 4001 + GinkgoParallelNode()
+
 		mysqlAllocator = test_helpers.NewMySQLAllocator()
-		etcdAllocator = test_helpers.NewEtcdAllocator()
+		etcdAllocator = test_helpers.NewEtcdAllocator(etcdPort)
 
 		sqlDBName, err = mysqlAllocator.Create()
 		Expect(err).NotTo(HaveOccurred())
 
-		etcdPort = 4001 + GinkgoParallelNode()
-		_, err = etcdAllocator.Create(etcdPort)
+		_, err = etcdAllocator.Create()
 		Expect(err).NotTo(HaveOccurred())
 
 		setupConsul()
