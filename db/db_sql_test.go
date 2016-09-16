@@ -1,6 +1,10 @@
 package db_test
 
 import (
+	"errors"
+	"os"
+	"time"
+
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/lager/lagertest"
 	"code.cloudfoundry.org/routing-api/config"
@@ -8,14 +12,11 @@ import (
 	"code.cloudfoundry.org/routing-api/db/fakes"
 	"code.cloudfoundry.org/routing-api/matchers"
 	"code.cloudfoundry.org/routing-api/models"
-	"errors"
 	"github.com/jinzhu/gorm"
 	"github.com/nu7hatch/gouuid"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
-	"os"
-	"time"
 )
 
 var _ = Describe("SqlDB", func() {

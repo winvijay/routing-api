@@ -441,6 +441,7 @@ func dispatchWatchEvents(sub eventhub.Source, events chan<- Event, errors chan<-
 		if !ok {
 			errors <- fmt.Errorf("Incoming event is not a db.Event: %#v", event)
 		}
+
 		events <- watchEvent
 	}
 }
