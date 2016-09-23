@@ -2,21 +2,6 @@ package migration
 
 import "code.cloudfoundry.org/routing-api/db"
 
-type Migration interface {
-	RunMigration() error
-	Version() int
-}
-
-func RunMigrations() {
-	migrations := []Migration{
-		new(V1EtcdMigration),
-	}
-
-	for _, m := range migrations {
-		m.RunMigration()
-	}
-}
-
 // one-time migration
 
 type V1EtcdMigration struct {

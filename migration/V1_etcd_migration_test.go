@@ -18,15 +18,16 @@ import (
 
 var _ = Describe("V1EtcdMigration", func() {
 	var (
-		etcd       db.DB
-		sqlDB      *db.SqlDB
-		etcdRunner *etcdstorerunner.ETCDClusterRunner
+		etcd           db.DB
+		sqlDB          *db.SqlDB
+		etcdRunner     *etcdstorerunner.ETCDClusterRunner
+		mysqlAllocator testrunner.DbAllocator
 	)
 	Context("when database connection is successful", func() {
 		BeforeEach(func() {
 			// wrrite router groups
 			// read from mysql and verify the data
-			mysqlAllocator := testrunner.NewMySQLAllocator()
+			mysqlAllocator = testrunner.NewMySQLAllocator()
 			mysqlSchema, err := mysqlAllocator.Create()
 			Expect(err).NotTo(HaveOccurred())
 
@@ -73,7 +74,7 @@ var _ = Describe("V1EtcdMigration", func() {
 			etcdRunner.Stop()
 			etcdRunner.KillWithFire()
 			etcdRunner.GoAway()
-			sqlDB.Client.Delete(models.RouterGroupsDB{})
+			mysqlAllocator.Delete()
 		})
 
 		Context("with router groups in etcd", func() {
