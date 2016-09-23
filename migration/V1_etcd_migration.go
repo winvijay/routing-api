@@ -2,8 +2,6 @@ package migration
 
 import "code.cloudfoundry.org/routing-api/db"
 
-// one-time migration
-
 type V1EtcdMigration struct {
 	sqlDB db.DB
 	etcd  db.DB
