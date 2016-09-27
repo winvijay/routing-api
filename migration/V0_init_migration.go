@@ -9,23 +9,11 @@ import (
 )
 
 type V0InitMigration struct {
-	sqlDB *gorm.DB
+	sqlCfg *config.SqlDB
 }
 
-func NewV0InitMigration(cfg config.SqlDB) *V0InitMigration {
-	connectionString := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true",
-		cfg.Username,
-		cfg.Password,
-		cfg.Host,
-		cfg.Port,
-		cfg.Schema)
-
-	db, err := gorm.Open(cfg.Type, connectionString)
-	if err != nil {
-		return &V0InitMigration{}
-	}
-
-	return &V0InitMigration{sqlDB: db}
+func NewV0InitMigration(cfg *config.SqlDB) *V0InitMigration {
+	return &V0InitMigration{sqlCfg: cfg}
 }
 
 func (v *V0InitMigration) Version() int {
@@ -33,5 +21,17 @@ func (v *V0InitMigration) Version() int {
 }
 
 func (v *V0InitMigration) RunMigration() error {
-	return v.sqlDB.AutoMigrate(&models.RouterGroupDB{}, &models.TcpRouteMapping{}, &models.Route{}).Error
+	connectionString := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true",
+		v.sqlCfg.Username,
+		v.sqlCfg.Password,
+		v.sqlCfg.Host,
+		v.sqlCfg.Port,
+		v.sqlCfg.Schema)
+
+	db, err := gorm.Open(v.sqlCfg.Type, connectionString)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	return db.AutoMigrate(&models.RouterGroupDB{}, &models.TcpRouteMapping{}, &models.Route{}).Error
 }
