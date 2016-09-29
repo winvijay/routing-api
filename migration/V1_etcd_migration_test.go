@@ -151,7 +151,7 @@ var _ = Describe("V1EtcdMigration", func() {
 						savedRoute.TTL = &ttl
 						sqlDB.SaveRoute(savedRoute)
 
-						Eventually(etcd.ReadRoutes).Should(HaveLen(0))
+						Eventually(etcd.ReadRoutes, "2s").Should(HaveLen(0))
 
 						Consistently(func() []models.Route {
 							routes, err = sqlDB.ReadRoutes()
