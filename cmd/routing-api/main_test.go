@@ -85,7 +85,7 @@ var _ = Describe("Main", func() {
 		Eventually(session).Should(Say("failed-initialize-sql-connection"))
 	})
 
-	Context("when initialized correctly and db is running", func() {
+	FContext("when initialized correctly and db is running", func() {
 		BeforeEach(func() {
 			oauthServer.AppendHandlers(
 				ghttp.CombineHandlers(

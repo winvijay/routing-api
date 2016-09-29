@@ -63,6 +63,54 @@ func New(binPath string, args Args) *ginkgomon.Runner {
 	})
 }
 
+func CreateMigrationConfig(dbId, consulUrl string) (string, error) {
+	var configBytes []byte
+	configFile, err := ioutil.TempFile("", "routing-api-config")
+	if err != nil {
+		return "", err
+	}
+	configFilePath := configFile.Name()
+	etcdSqlConfig := `log_guid: "my_logs"
+uaa_verification_key: "-----BEGIN PUBLIC KEY-----
+
+      MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDHFr+KICms+tuT1OXJwhCUmR2d
+
+      KVy7psa8xzElSyzqx7oJyfJ1JZyOzToj9T5SfTIq396agbHJWVfYphNahvZ/7uMX
+
+      qHxf+ZH9BL1gk9Y6kCnbM5R60gfwjyW1/dQPjOzn9N394zd2FJoFHwdq9Qs0wBug
+
+      spULZVNRxq7veq/fzwIDAQAB
+
+      -----END PUBLIC KEY-----"
+
+debug_address: "1.2.3.4:1234"
+sqldb:
+  username: "root"
+  password: "password"
+  schema: "%s"
+  port: 3306
+  host: "localhost"
+  type: "mysql"
+metron_config:
+  address: "1.2.3.4"
+  port: "4567"
+metrics_reporting_interval: "500ms"
+statsd_endpoint: "localhost:8125"
+statsd_client_flush_interval: "10ms"
+system_domain: "example.com"
+router_groups:
+- name: "default-tcp"
+  type: "tcp"
+  reservable_ports: "1024-65535"
+etcd:
+  node_urls: ["%s"]
+consul_cluster:
+  servers: "%s"`
+
+	configBytes = []byte(fmt.Sprintf(etcdSqlConfig, dbId, consulUrl))
+	err = utils.WriteToFile(configBytes, configFilePath)
+	return configFilePath, err
+}
 func createConfig(dbId, consulUrl string) (string, error) {
 	var configBytes []byte
 	configFile, err := ioutil.TempFile("", "routing-api-config")

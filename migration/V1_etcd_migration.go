@@ -2,6 +2,7 @@ package migration
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/routing-api/config"
@@ -25,12 +26,13 @@ func (v *V1EtcdMigration) Version() int {
 }
 
 func (v *V1EtcdMigration) RunMigration(dbSQL db.DB) error {
-	sqlDB := dbSQL.(*db.SqlDB)
-	gormDB := sqlDB.Client.(*gorm.DB)
-
 	if len(v.etcdCfg.NodeURLS) == 0 {
+		v.logger.Info("etcd-not-configured")
 		return nil
 	}
+
+	sqlDB := dbSQL.(*db.SqlDB)
+	gormDB := sqlDB.Client.(*gorm.DB)
 
 	etcd, err := db.NewETCD(*v.etcdCfg)
 	if err != nil {
@@ -66,8 +68,8 @@ func (v *V1EtcdMigration) RunMigration(dbSQL db.DB) error {
 		}
 	}
 
+	fmt.Println("run http events")
 	go v.watchForHTTPEvents(etcd, sqlDB)
-	go v.watchForTCPEvents(etcd, sqlDB)
 
 	etcdTcpRoutes, err := etcd.ReadTcpRouteMappings()
 	if err != nil {
@@ -85,6 +87,11 @@ func (v *V1EtcdMigration) RunMigration(dbSQL db.DB) error {
 			return err
 		}
 	}
+
+	fmt.Println("run tcp events")
+	go v.watchForTCPEvents(etcd, sqlDB)
+
+	fmt.Println("run v1 migration")
 	return nil
 }
 

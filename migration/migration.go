@@ -23,6 +23,8 @@ type Migration interface {
 	Version() int
 }
 
+// TODO Run() {init, RunMigration}
+//
 func InitializeMigrations(etcdCfg *config.Etcd, logger lager.Logger) []Migration {
 	migrations := []Migration{}
 	var migration Migration
@@ -30,9 +32,9 @@ func InitializeMigrations(etcdCfg *config.Etcd, logger lager.Logger) []Migration
 	migration = NewV0InitMigration()
 	migrations = append(migrations, migration)
 
-	done := make(chan struct{})
-	migration = NewV1EtcdMigration(etcdCfg, done, logger)
-	migrations = append(migrations, migration)
+	// done := make(chan struct{})
+	// migration = NewV1EtcdMigration(etcdCfg, done, logger)
+	// migrations = append(migrations, migration)
 
 	return migrations
 }
@@ -41,6 +43,7 @@ func RunMigrations(sqlCfg *config.SqlDB, migrations []Migration) error {
 	if len(migrations) == 0 {
 		return nil
 	}
+	fmt.Println("starting migration ************ REMOVE")
 
 	lastMigrationVersion := migrations[len(migrations)-1].Version()
 

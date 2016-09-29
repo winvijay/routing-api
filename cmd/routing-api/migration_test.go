@@ -62,7 +62,7 @@ var _ = XDescribe("Migrations", func() {
 		Eventually(func() error {
 			_, err := client.RouterGroups()
 			if err != nil {
-				fmt.Printf("err", err, err.Error())
+				fmt.Printf("err %s", err.Error())
 			}
 			return err
 		}, "60s", "1s").Should(BeNil())

@@ -19,6 +19,7 @@ import (
 	"code.cloudfoundry.org/routing-api/handlers"
 	"code.cloudfoundry.org/routing-api/helpers"
 	"code.cloudfoundry.org/routing-api/metrics"
+	"code.cloudfoundry.org/routing-api/migration"
 	"code.cloudfoundry.org/routing-api/models"
 	uaaclient "code.cloudfoundry.org/uaa-go-client"
 	uaaconfig "code.cloudfoundry.org/uaa-go-client/config"
@@ -88,8 +89,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	seedRouterGroups(cfg, logger, database)
-
 	prefix := "routing_api"
 	statsdClient, err := statsd.NewBufferedClient(cfg.StatsdEndpoint, prefix, cfg.StatsdClientFlushInterval, 512)
 	if err != nil {
@@ -113,8 +112,9 @@ func main() {
 		cfg.ConsulCluster.LockTTL, cfg.ConsulCluster.RetryInterval, clock)
 	metricsTicker := time.NewTicker(cfg.MetricsReportingInterval)
 	metricsReporter := metrics.NewMetricsReporter(database, statsdClient, metricsTicker, logger.Session("metrics"))
-
+	migrationProcess := runMigration(database, cfg, &cfg.SqlDB, &cfg.Etcd, logger.Session("migration"))
 	members := grouper.Members{
+		{"migration", migrationProcess},
 		{"lock-maintainer", lockMaintainer},
 		{"api-server", apiServer},
 		{"conn-stopper", stopper},
@@ -196,6 +196,22 @@ func runCleanupRoutes(sqlDatabase db.DB, logger lager.Logger) ifrit.Runner {
 	})
 }
 
+func runMigration(database db.DB, cfg config.Config, sqlCfg *config.SqlDB, etcdCfg *config.Etcd, logger lager.Logger) ifrit.Runner {
+	fmt.Println("ifrit started invoked migration ******** REMOVE")
+	return ifrit.RunFunc(func(signals <-chan os.Signal, ready chan<- struct{}) error {
+		migrations := migration.InitializeMigrations(etcdCfg, logger)
+		err := migration.RunMigrations(sqlCfg, migrations)
+
+		fmt.Println("ifrit invoked migration ****************** REMOVE")
+		if err != nil {
+			return nil
+		}
+		seedRouterGroups(cfg, logger, database)
+		close(ready)
+		return nil
+	})
+}
+
 func constructRouteRegister(
 	logGuid string,
 	systemDomain string,
@@ -252,6 +268,7 @@ func constructApiServer(cfg config.Config, database db.DB, statsdClient statsd.S
 	}
 
 	handler = handlers.LogWrap(handler, logger)
+	logger.Info("starting api server")
 	return http_server.New(":"+strconv.Itoa(int(*port)), handler)
 }
 
