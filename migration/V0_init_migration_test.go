@@ -14,16 +14,17 @@ import (
 
 var _ = Describe("V0InitMigration", func() {
 	var (
-		sqlDB          *db.SqlDB
-		sqlCfg         *config.SqlDB
 		mysqlAllocator testrunner.DbAllocator
+		gormDb         *gorm.DB
+		dbSQL          db.DB
+		err            error
 	)
 	BeforeEach(func() {
 		mysqlAllocator = testrunner.NewMySQLAllocator()
 		mysqlSchema, err := mysqlAllocator.Create()
 		Expect(err).NotTo(HaveOccurred())
 
-		sqlCfg = &config.SqlDB{
+		sqlCfg := &config.SqlDB{
 			Username: "root",
 			Password: "password",
 			Schema:   mysqlSchema,
@@ -32,9 +33,10 @@ var _ = Describe("V0InitMigration", func() {
 			Type:     "mysql",
 		}
 
-		dbSQL, err := db.NewSqlDB(sqlCfg)
+		dbSQL, err = db.NewSqlDB(sqlCfg)
 		Expect(err).ToNot(HaveOccurred())
-		sqlDB = dbSQL.(*db.SqlDB)
+		sqlDB := dbSQL.(*db.SqlDB)
+		gormDb = sqlDB.Client.(*gorm.DB)
 	})
 
 	AfterEach(func() {
@@ -44,16 +46,16 @@ var _ = Describe("V0InitMigration", func() {
 	Context("when valid sql config is passed", func() {
 		var v0Migration *migration.V0InitMigration
 		BeforeEach(func() {
-			v0Migration = migration.NewV0InitMigration(sqlCfg)
+			v0Migration = migration.NewV0InitMigration()
 		})
 
-		It("should successfully create correct schema", func() {
-			err := v0Migration.RunMigration()
+		It("should successfully create correct schema and does not close db connection", func() {
+			err = v0Migration.RunMigration(dbSQL)
 			Expect(err).ToNot(HaveOccurred())
-			gormClient := sqlDB.Client.(*gorm.DB)
-			Expect(gormClient.HasTable(&models.RouterGroupDB{})).To(BeTrue())
-			Expect(gormClient.HasTable(&models.TcpRouteMapping{})).To(BeTrue())
-			Expect(gormClient.HasTable(&models.Route{})).To(BeTrue())
+
+			Expect(gormDb.HasTable(&models.RouterGroupDB{})).To(BeTrue())
+			Expect(gormDb.HasTable(&models.TcpRouteMapping{})).To(BeTrue())
+			Expect(gormDb.HasTable(&models.Route{})).To(BeTrue())
 		})
 	})
 })

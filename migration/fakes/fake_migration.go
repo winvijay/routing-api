@@ -4,15 +4,15 @@ package fakes
 import (
 	"sync"
 
+	"code.cloudfoundry.org/routing-api/db"
 	"code.cloudfoundry.org/routing-api/migration"
-	"github.com/jinzhu/gorm"
 )
 
 type FakeMigration struct {
-	RunMigrationStub        func(db *gorm.DB) error
+	RunMigrationStub        func(database db.DB) error
 	runMigrationMutex       sync.RWMutex
 	runMigrationArgsForCall []struct {
-		db *gorm.DB
+		database db.DB
 	}
 	runMigrationReturns struct {
 		result1 error
@@ -20,19 +20,22 @@ type FakeMigration struct {
 	VersionStub        func() int
 	versionMutex       sync.RWMutex
 	versionArgsForCall []struct{}
-	versionReturns struct {
+	versionReturns     struct {
 		result1 int
 	}
+	invocations      map[string][][]interface{}
+	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeMigration) RunMigration(db *gorm.DB) error {
+func (fake *FakeMigration) RunMigration(database db.DB) error {
 	fake.runMigrationMutex.Lock()
 	fake.runMigrationArgsForCall = append(fake.runMigrationArgsForCall, struct {
-		db *gorm.DB
-	}{db})
+		database db.DB
+	}{database})
+	fake.recordInvocation("RunMigration", []interface{}{database})
 	fake.runMigrationMutex.Unlock()
 	if fake.RunMigrationStub != nil {
-		return fake.RunMigrationStub(db)
+		return fake.RunMigrationStub(database)
 	} else {
 		return fake.runMigrationReturns.result1
 	}
@@ -44,10 +47,10 @@ func (fake *FakeMigration) RunMigrationCallCount() int {
 	return len(fake.runMigrationArgsForCall)
 }
 
-func (fake *FakeMigration) RunMigrationArgsForCall(i int) *gorm.DB {
+func (fake *FakeMigration) RunMigrationArgsForCall(i int) db.DB {
 	fake.runMigrationMutex.RLock()
 	defer fake.runMigrationMutex.RUnlock()
-	return fake.runMigrationArgsForCall[i].db
+	return fake.runMigrationArgsForCall[i].database
 }
 
 func (fake *FakeMigration) RunMigrationReturns(result1 error) {
@@ -60,6 +63,7 @@ func (fake *FakeMigration) RunMigrationReturns(result1 error) {
 func (fake *FakeMigration) Version() int {
 	fake.versionMutex.Lock()
 	fake.versionArgsForCall = append(fake.versionArgsForCall, struct{}{})
+	fake.recordInvocation("Version", []interface{}{})
 	fake.versionMutex.Unlock()
 	if fake.VersionStub != nil {
 		return fake.VersionStub()
@@ -79,6 +83,28 @@ func (fake *FakeMigration) VersionReturns(result1 int) {
 	fake.versionReturns = struct {
 		result1 int
 	}{result1}
+}
+
+func (fake *FakeMigration) Invocations() map[string][][]interface{} {
+	fake.invocationsMutex.RLock()
+	defer fake.invocationsMutex.RUnlock()
+	fake.runMigrationMutex.RLock()
+	defer fake.runMigrationMutex.RUnlock()
+	fake.versionMutex.RLock()
+	defer fake.versionMutex.RUnlock()
+	return fake.invocations
+}
+
+func (fake *FakeMigration) recordInvocation(key string, args []interface{}) {
+	fake.invocationsMutex.Lock()
+	defer fake.invocationsMutex.Unlock()
+	if fake.invocations == nil {
+		fake.invocations = map[string][][]interface{}{}
+	}
+	if fake.invocations[key] == nil {
+		fake.invocations[key] = [][]interface{}{}
+	}
+	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
 var _ migration.Migration = new(FakeMigration)

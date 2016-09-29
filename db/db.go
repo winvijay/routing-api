@@ -124,6 +124,7 @@ func (e *etcd) ReadRoutes() ([]models.Route, error) {
 		if err != nil {
 			return []models.Route{}, nil
 		}
+		route.ExpiresAt = *node.Expiration
 
 		listRoutes = append(listRoutes, route)
 	}
@@ -399,6 +400,7 @@ func (e *etcd) ReadTcpRouteMappings() ([]models.TcpRouteMapping, error) {
 				if err != nil {
 					return []models.TcpRouteMapping{}, nil
 				}
+				tcpMapping.ExpiresAt = *mappingNode.Expiration
 				listMappings = append(listMappings, tcpMapping)
 			}
 		}

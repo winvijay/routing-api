@@ -3,12 +3,13 @@ package migration
 import (
 	"fmt"
 
+	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/routing-api/config"
+	"code.cloudfoundry.org/routing-api/db"
 	"github.com/jinzhu/gorm"
 )
 
 const MigrationKey = "routing-api-migration"
-const DataVersion = 1
 
 type MigrationData struct {
 	MigrationKey   string `gorm:"primary_key"`
@@ -18,30 +19,43 @@ type MigrationData struct {
 
 //go:generate counterfeiter -o fakes/fake_migration.go . Migration
 type Migration interface {
-	RunMigration(db *gorm.DB) error
+	RunMigration(database db.DB) error
 	Version() int
 }
 
-func RunMigrations(sqlCfg *config.SqlDB, migrations []Migration) error {
-	// migrations := []Migration{
-	// 	NewV0InitMigration(sqlCfg),
-	// 	NewV1EtcdMigration(sqlCfg, etcdCfg),
-	// }
+func InitializeMigrations(etcdCfg *config.Etcd, logger lager.Logger) []Migration {
+	migrations := []Migration{}
+	var migration Migration
 
+	migration = NewV0InitMigration()
+	migrations = append(migrations, migration)
+
+	done := make(chan struct{})
+	migration = NewV1EtcdMigration(etcdCfg, done, logger)
+	migrations = append(migrations, migration)
+
+	return migrations
+}
+
+func RunMigrations(sqlCfg *config.SqlDB, migrations []Migration) error {
 	if len(migrations) == 0 {
 		return nil
 	}
 
 	lastMigrationVersion := migrations[len(migrations)-1].Version()
 
-	db, err := connectDB(sqlCfg)
+	dbSQL, err := db.NewSqlDB(sqlCfg)
 	if err != nil {
 		return err
 	}
-	defer db.Close()
-	db.AutoMigrate(&MigrationData{})
 
-	tx := db.Begin()
+	sqlDB := dbSQL.(*db.SqlDB)
+	gormDB := sqlDB.Client.(*gorm.DB)
+
+	defer gormDB.Close()
+	gormDB.AutoMigrate(&MigrationData{})
+
+	tx := gormDB.Begin()
 
 	existingVersion := &MigrationData{}
 
@@ -64,9 +78,15 @@ func RunMigrations(sqlCfg *config.SqlDB, migrations []Migration) error {
 			return err
 		}
 	} else {
-		if existingVersion.TargetVersion < lastMigrationVersion {
-			existingVersion.TargetVersion = lastMigrationVersion
-			tx.Save(existingVersion)
+		if existingVersion.TargetVersion >= lastMigrationVersion {
+			return tx.Commit().Error
+		}
+
+		existingVersion.TargetVersion = lastMigrationVersion
+		err := tx.Save(existingVersion).Error
+		if err != nil {
+			tx.Rollback()
+			return err
 		}
 	}
 	err = tx.Commit().Error
@@ -75,15 +95,15 @@ func RunMigrations(sqlCfg *config.SqlDB, migrations []Migration) error {
 	}
 
 	currentVersion := existingVersion.CurrentVersion
-	fmt.Printf("\nNumber of migrations: %d\n", len(migrations))
 	for _, m := range migrations {
-		fmt.Printf("\nLooking at migration version :  %d, CurrentVersion: %d\n", m.Version(), currentVersion)
 		if m.Version() > currentVersion {
-			fmt.Printf("\nApplying migration version :  %d, Current Version:%d\n", m.Version(), currentVersion)
-			m.RunMigration(db)
+			m.RunMigration(dbSQL)
 			currentVersion = m.Version()
 			existingVersion.CurrentVersion = currentVersion
-			return db.Save(existingVersion).Error
+			err := gormDB.Save(existingVersion).Error
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
