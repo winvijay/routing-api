@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"time"
 
+	"code.cloudfoundry.org/routing-api"
 	"code.cloudfoundry.org/routing-api/cmd/routing-api/testrunner"
 	"code.cloudfoundry.org/routing-api/models"
 	"github.com/jinzhu/gorm"
@@ -154,7 +155,7 @@ var _ = Describe("Main", func() {
 
 		Context("when etcd is unavailable", func() {
 			AfterEach(func() {
-				validatePort(etcdPort)
+				validatePort(uint16(etcdPort))
 				_, err := etcdAllocator.Create()
 				Expect(err).NotTo(HaveOccurred())
 			})
