@@ -6,7 +6,6 @@ import (
 	"os/exec"
 	"time"
 
-	"code.cloudfoundry.org/routing-api"
 	"code.cloudfoundry.org/routing-api/cmd/routing-api/testrunner"
 	"code.cloudfoundry.org/routing-api/models"
 	"github.com/jinzhu/gorm"
@@ -155,6 +154,7 @@ var _ = Describe("Main", func() {
 
 		Context("when etcd is unavailable", func() {
 			AfterEach(func() {
+				validatePort(etcdPort)
 				_, err := etcdAllocator.Create()
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -165,7 +165,7 @@ var _ = Describe("Main", func() {
 
 				Expect(etcdAllocator.Delete()).NotTo(HaveOccurred())
 				// to ensure etcd is stopped completely
-				time.Sleep(time.Second)
+				time.Sleep(2 * time.Second)
 
 				ginkgomon.Interrupt(proc)
 				Eventually(routingAPIRunner).Should(Exit(1))
