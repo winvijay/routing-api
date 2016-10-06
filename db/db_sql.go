@@ -32,27 +32,25 @@ func NewSqlDB(cfg *config.SqlDB) (*SqlDB, error) {
 	if cfg == nil {
 		return nil, errors.New("SQL configuration cannot be nil")
 	}
+
 	var (
-		host             string
 		connectionString string
 	)
 
 	switch cfg.Type {
 	case "mysql":
-		host = fmt.Sprintf("tcp(%s:%d)", cfg.Host, cfg.Port)
-		connectionString = fmt.Sprintf("%s:%s@%s/%s?parseTime=true",
+		connectionString = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true",
 			cfg.Username,
 			cfg.Password,
-			host,
+			cfg.Host,
 			cfg.Port,
 			cfg.Schema)
 	case "postgres":
-		host = fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
-		// "postgres://username:password@localhost/db_name?sslmode=disable")
-		connectionString = fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable",
+		connectionString = fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=disable",
 			cfg.Username,
 			cfg.Password,
-			host,
+			cfg.Host,
+			cfg.Port,
 			cfg.Schema)
 	default:
 		return &SqlDB{}, errors.New(fmt.Sprintf("Unknown type %s", cfg.Type))
