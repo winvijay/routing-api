@@ -159,7 +159,8 @@ func teardownConsul() {
 }
 
 func resetConsul() {
-	consulRunner.Reset()
+	err := consulRunner.Reset()
+	Expect(err).ToNot(HaveOccurred())
 }
 
 func createConfig(useSQL bool) string {
@@ -204,7 +205,10 @@ func createConfig(useSQL bool) string {
 	Expect(err).NotTo(HaveOccurred())
 
 	err = tmpl.Execute(configFile, actualConfig)
-	configFile.Close()
+	defer func() {
+		err := configFile.Close()
+		Expect(err).ToNot(HaveOccurred())
+	}()
 	Expect(err).NotTo(HaveOccurred())
 
 	return configFilePath

@@ -47,7 +47,8 @@ var _ = Describe("Routes API", func() {
 			})
 
 			AfterEach(func() {
-				eventStream.Close()
+				err = eventStream.Close()
+				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("returns an eventstream", func() {
@@ -71,13 +72,15 @@ var _ = Describe("Routes API", func() {
 
 				routesToInsert := []models.TcpRouteMapping{route1}
 
-				client.UpsertTcpRouteMappings(routesToInsert)
+				err := client.UpsertTcpRouteMappings(routesToInsert)
+				Expect(err).NotTo(HaveOccurred())
 				event, err := eventStream.Next()
 				Expect(err).NotTo(HaveOccurred())
 				Expect(event.Action).To(Equal("Upsert"))
 				Expect(event.TcpRouteMapping).To(matchers.MatchTcpRoute(route1))
 
-				client.UpsertTcpRouteMappings([]models.TcpRouteMapping{routeUpdated})
+				err = client.UpsertTcpRouteMappings([]models.TcpRouteMapping{routeUpdated})
+				Expect(err).NotTo(HaveOccurred())
 				event, err = eventStream.Next()
 				Expect(err).NotTo(HaveOccurred())
 				Expect(event.Action).To(Equal("Upsert"))
@@ -88,7 +91,8 @@ var _ = Describe("Routes API", func() {
 				defer close(done)
 				routesToInsert := []models.TcpRouteMapping{route1}
 
-				client.UpsertTcpRouteMappings(routesToInsert)
+				err := client.UpsertTcpRouteMappings(routesToInsert)
+				Expect(err).NotTo(HaveOccurred())
 				event, err := eventStream.Next()
 				Expect(err).NotTo(HaveOccurred())
 
@@ -97,7 +101,8 @@ var _ = Describe("Routes API", func() {
 					TcpRouteMapping: route1,
 				}
 
-				client.DeleteTcpRouteMappings(routesToInsert)
+				err = client.DeleteTcpRouteMappings(routesToInsert)
+				Expect(err).NotTo(HaveOccurred())
 				event, err = eventStream.Next()
 				Expect(err).NotTo(HaveOccurred())
 				Expect(event.Action).To(Equal(expectedEvent.Action))
@@ -107,8 +112,9 @@ var _ = Describe("Routes API", func() {
 			It("gets events for expired routes", func() {
 				routeExpire := models.NewTcpRouteMapping(routerGroupGuid, 3000, "1.1.1.1", 1234, 1)
 
-				client.UpsertTcpRouteMappings([]models.TcpRouteMapping{routeExpire})
-				_, err := eventStream.Next()
+				err := client.UpsertTcpRouteMappings([]models.TcpRouteMapping{routeExpire})
+				Expect(err).NotTo(HaveOccurred())
+				_, err = eventStream.Next()
 				Expect(err).NotTo(HaveOccurred())
 
 				expectedEvent := routing_api.TcpEvent{
@@ -142,7 +148,8 @@ var _ = Describe("Routes API", func() {
 			})
 
 			AfterEach(func() {
-				eventStream.Close()
+				err = eventStream.Close()
+				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("returns an eventstream", func() {
@@ -151,7 +158,8 @@ var _ = Describe("Routes API", func() {
 					Route:  route1,
 				}
 				routesToInsert := []models.Route{route1}
-				client.UpsertRoutes(routesToInsert)
+				err := client.UpsertRoutes(routesToInsert)
+				Expect(err).NotTo(HaveOccurred())
 
 				Eventually(func() bool {
 					event, err := eventStream.Next()
@@ -163,14 +171,16 @@ var _ = Describe("Routes API", func() {
 			It("gets events for updated routes", func() {
 				routeUpdated := models.NewRoute("a.b.c", 33, "1.1.1.1", "potato", "", 85)
 
-				client.UpsertRoutes([]models.Route{route1})
+				err := client.UpsertRoutes([]models.Route{route1})
+				Expect(err).NotTo(HaveOccurred())
 				Eventually(func() bool {
 					event, err := eventStream.Next()
 					Expect(err).NotTo(HaveOccurred())
 					return event.Action == "Upsert" && event.Route.Matches(route1)
 				}).Should(BeTrue())
 
-				client.UpsertRoutes([]models.Route{routeUpdated})
+				err = client.UpsertRoutes([]models.Route{routeUpdated})
+				Expect(err).NotTo(HaveOccurred())
 				Eventually(func() bool {
 					event, err := eventStream.Next()
 					Expect(err).NotTo(HaveOccurred())
@@ -179,13 +189,15 @@ var _ = Describe("Routes API", func() {
 			})
 
 			It("gets events for deleted routes", func() {
-				client.UpsertRoutes([]models.Route{route1})
+				err := client.UpsertRoutes([]models.Route{route1})
+				Expect(err).NotTo(HaveOccurred())
 
 				expectedEvent := routing_api.Event{
 					Action: "Delete",
 					Route:  route1,
 				}
-				client.DeleteRoutes([]models.Route{route1})
+				err = client.DeleteRoutes([]models.Route{route1})
+				Expect(err).NotTo(HaveOccurred())
 				Eventually(func() bool {
 					event, err := eventStream.Next()
 					Expect(err).NotTo(HaveOccurred())
@@ -196,8 +208,9 @@ var _ = Describe("Routes API", func() {
 			It("gets events for expired routes", func() {
 				routeExpire := models.NewRoute("z.a.k", 63, "42.42.42.42", "Tomato", "", 1)
 
-				client.UpsertRoutes([]models.Route{routeExpire})
-				_, err := eventStream.Next()
+				err := client.UpsertRoutes([]models.Route{routeExpire})
+				Expect(err).NotTo(HaveOccurred())
+				_, err = eventStream.Next()
 				Expect(err).NotTo(HaveOccurred())
 
 				expectedEvent := routing_api.Event{
