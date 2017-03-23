@@ -97,7 +97,7 @@ func (h *RouterGroupsHandler) UpdateRouterGroup(w http.ResponseWriter, req *http
 		return
 	}
 
-	if updatedGroup.ReservablePorts != "" && rg.ReservablePorts != updatedGroup.ReservablePorts {
+	if rg.ReservablePorts != updatedGroup.ReservablePorts {
 		rg.ReservablePorts = updatedGroup.ReservablePorts
 		err = rg.Validate()
 		if err != nil {
