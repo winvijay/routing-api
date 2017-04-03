@@ -131,6 +131,30 @@ consul_cluster:
 			})
 		})
 
+		Context("when router group is provided", func() {
+			testConfig := func() string {
+				return `log_guid: "my_logs"
+metrics_reporting_interval: "500ms"
+statsd_endpoint: "localhost:8125"
+statsd_client_flush_interval: "10ms"
+system_domain: "example.com"
+router_group: "test-group"
+router_groups:
+- name: router-group-2
+  reservable_ports: 1024-10000,42000
+  type: udp
+consul_cluster:
+  url: "http://localhost:4222"
+`
+			}
+			It("should configure rg without error", func() {
+				config := testConfig()
+				err := cfg.Initialize([]byte(config), true)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(cfg.RouterGroup).To(Equal("test-group"))
+			})
+		})
+
 		Context("when multiple router groups are seeded", func() {
 			var expectedGroups models.RouterGroups
 

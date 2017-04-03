@@ -64,6 +64,7 @@ type Config struct {
 	Etcd                            Etcd                `yaml:"etcd"`
 	SqlDB                           SqlDB               `yaml:"sqldb"`
 	ConsulCluster                   ConsulCluster       `yaml:"consul_cluster"`
+	RouterGroup                     string              `yaml:"router_group"`
 }
 
 func NewConfigFromFile(configFile string, authDisabled bool) (Config, error) {
