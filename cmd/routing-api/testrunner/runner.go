@@ -45,8 +45,8 @@ func NewDbAllocator(etcdPort int) DbAllocator {
 	return dbAllocator
 }
 
-func NewRoutingAPIArgs(ip string, port uint16, dbId, consulUrl string) (Args, error) {
-	configPath, err := createConfig(dbId, consulUrl)
+func NewRoutingAPIArgs(ip string, port uint16, dbId, consulUrl, routerGroupName string) (Args, error) {
+	configPath, err := createConfig(dbId, consulUrl, routerGroupName)
 	if err != nil {
 		return Args{}, err
 	}
@@ -67,7 +67,7 @@ func New(binPath string, args Args) *ginkgomon.Runner {
 	})
 }
 
-func createConfig(dbId, consulUrl string) (string, error) {
+func createConfig(dbId, consulUrl, routerGroupName string) (string, error) {
 	var configBytes []byte
 	configFile, err := ioutil.TempFile("", "routing-api-config")
 	if err != nil {
@@ -75,9 +75,10 @@ func createConfig(dbId, consulUrl string) (string, error) {
 	}
 	configFilePath := configFile.Name()
 
+	var configStr string
 	switch dbEnv {
 	case "etcd":
-		etcdConfigStr := `log_guid: "my_logs"
+		configStr = `log_guid: "my_logs"
 uaa_verification_key: "-----BEGIN PUBLIC KEY-----
 
       MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDHFr+KICms+tuT1OXJwhCUmR2d
@@ -99,7 +100,7 @@ statsd_endpoint: "localhost:8125"
 statsd_client_flush_interval: "10ms"
 system_domain: "example.com"
 router_groups:
-- name: "default-tcp"
+- name: "%s"
   type: "tcp"
   reservable_ports: "1024-65535"
 etcd:
@@ -107,9 +108,8 @@ etcd:
 consul_cluster:
   servers: "%s"
   retry_interval: 50ms`
-		configBytes = []byte(fmt.Sprintf(etcdConfigStr, dbId, consulUrl))
 	case "postgres":
-		postgresConfigStr := `log_guid: "my_logs"
+		configStr = `log_guid: "my_logs"
 uaa_verification_key: "-----BEGIN PUBLIC KEY-----
 
       MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDHFr+KICms+tuT1OXJwhCUmR2d
@@ -131,7 +131,7 @@ statsd_endpoint: "localhost:8125"
 statsd_client_flush_interval: "10ms"
 system_domain: "example.com"
 router_groups:
-- name: "default-tcp"
+- name: "%s"
   type: "tcp"
   reservable_ports: "1024-65535"
 sqldb:
@@ -144,9 +144,8 @@ sqldb:
 consul_cluster:
   servers: "%s"
   retry_interval: 50ms`
-		configBytes = []byte(fmt.Sprintf(postgresConfigStr, dbId, consulUrl))
 	default:
-		mysqlConfigStr := `log_guid: "my_logs"
+		configStr = `log_guid: "my_logs"
 uaa_verification_key: "-----BEGIN PUBLIC KEY-----
 
       MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDHFr+KICms+tuT1OXJwhCUmR2d
@@ -168,7 +167,7 @@ statsd_endpoint: "localhost:8125"
 statsd_client_flush_interval: "10ms"
 system_domain: "example.com"
 router_groups:
-- name: "default-tcp"
+- name: "%s"
   type: "tcp"
   reservable_ports: "1024-65535"
 sqldb:
@@ -181,9 +180,9 @@ sqldb:
 consul_cluster:
   servers: "%s"
   retry_interval: 50ms`
-		configBytes = []byte(fmt.Sprintf(mysqlConfigStr, dbId, consulUrl))
 	}
 
+	configBytes = []byte(fmt.Sprintf(configStr, routerGroupName, dbId, consulUrl))
 	err = utils.WriteToFile(configBytes, configFilePath)
 	return configFilePath, err
 }
