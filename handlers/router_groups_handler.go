@@ -43,7 +43,14 @@ func (h *RouterGroupsHandler) ListRouterGroups(w http.ResponseWriter, req *http.
 		return
 	}
 
-	routerGroups, err := h.db.ReadRouterGroups()
+	var routerGroups []models.RouterGroup
+	if req.URL.Query()["name"][0] != "" {
+		routerGroup := models.RouterGroup{}
+		routerGroup, err = h.db.ReadRouterGroupByName(req.URL.Query()["name"][0])
+		routerGroups = append(routerGroups, routerGroup)
+	} else {
+		routerGroups, err = h.db.ReadRouterGroups()
+	}
 	if err != nil {
 		handleDBCommunicationError(w, err, log)
 		return
