@@ -25,7 +25,7 @@ type Client interface {
 	Model(value interface{}) Client
 	Exec(query string, args ...interface{}) int64
 	Rows(tableName string) (*sql.Rows, error)
-	DropColumn(column string, tableName string) error
+	DropColumn(column string) error
 }
 
 type gormClient struct {
@@ -35,9 +35,8 @@ type gormClient struct {
 func NewGormClient(db *gorm.DB) Client {
 	return &gormClient{db: db}
 }
-func (c *gormClient) DropColumn(name string, tableName string) error {
-	dbTable := c.db.Table(tableName)
-	return dbTable.DropColumn(name).Error
+func (c *gormClient) DropColumn(name string) error {
+	return c.db.DropColumn(name).Error
 }
 func (c *gormClient) Close() error {
 	return c.db.Close()

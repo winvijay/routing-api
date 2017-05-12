@@ -46,7 +46,7 @@ var _ = FDescribe("V3UpdateTcpRouteMigration", func() {
 		err = v0Migration.Run(sqlDB)
 		Expect(err).ToNot(HaveOccurred())
 
-		err = sqlDB.Client.DropColumn("isolation_segment", "tcp_routes")
+		err = sqlDB.Client.Model(&models.TcpRouteMapping{}).DropColumn("isolation_segment")
 		Expect(err).ToNot(HaveOccurred())
 
 		rows, err := sqlDB.Client.Rows("tcp_routes")
