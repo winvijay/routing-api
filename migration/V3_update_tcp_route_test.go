@@ -92,21 +92,23 @@ var _ = FDescribe("V3UpdateTcpRouteMigration", func() {
 				err := v3Migration.Run(sqlDB)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(sqlDB.Client.HasTable(&models.TcpRouteMapping{})).To(BeTrue())
+
 				rows, err := sqlDB.Client.Rows("tcp_routes")
 				Expect(err).ToNot(HaveOccurred())
 				columnList, err := rows.Columns()
 				Expect(err).ToNot(HaveOccurred())
-				Expect(columnList).ToNot(ContainElement("isolation_segment"))
+				Expect(columnList).Should(ContainElement("isolation_segment"))
 			})
 		})
 	})
 	Context("when there are routes", func() {
 		It("should update the records with empty isolation segments", func() {
 			tcpRoute1Entity := models.TcpMappingEntity{
-				RouterGroupGuid: "rg-guid-1",
-				HostPort:        2000,
-				HostIP:          "1.2.3.4",
-				ExternalPort:    3000,
+				RouterGroupGuid:  "rg-guid-1",
+				HostPort:         2000,
+				HostIP:           "1.2.3.4",
+				ExternalPort:     3000,
+				IsolationSegment: "some-iso-seg",
 			}
 			tcpRoute1 := models.TcpRouteMapping{
 				Model:            models.Model{Guid: "guid-1"},
