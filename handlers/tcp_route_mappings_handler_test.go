@@ -56,6 +56,40 @@ var _ = Describe("TcpRouteMappingsHandler", func() {
 				tcpMappings []models.TcpRouteMapping
 			)
 
+			Context("when an isolation segment is preset", func() {
+				tcpMapping := models.TcpRouteMapping{
+					TcpMappingEntity: models.TcpMappingEntity{
+						RouterGroupGuid:  "router-group-guid-001",
+						ExternalPort:     52000,
+						HostIP:           "1.2.3.4",
+						HostPort:         60000,
+						TTL:              *maxTTL,
+						IsolationSegment: "some-iso-seg",
+					}}
+				tcpMappings = []models.TcpRouteMapping{tcpMapping}
+
+				FIt("sets the isolation segment", func() {
+					request = handlers.NewTestRequest(tcpMappings)
+
+					tcpRouteMappingsHandler.Upsert(responseRecorder, request)
+					Expect(responseRecorder.Code).To(Equal(http.StatusCreated))
+
+					data := map[string]interface{}{
+						"port":              float64(52000),
+						"router_group_guid": "router-group-guid-001",
+						"backend_ip":        "1.2.3.4",
+						"backend_port":      float64(60000),
+						"modification_tag":  map[string]interface{}{"guid": "", "index": float64(0)},
+						"ttl":               float64(120),
+						"isolation_segment": "some-iso-seg",
+					}
+					log_data := map[string][]interface{}{"tcp_mapping_creation": []interface{}{data}}
+
+					Expect(logger.Logs()[0].Message).To(ContainSubstring("request"))
+					Expect(logger.Logs()[0].Data["tcp_mapping_creation"]).To(Equal(log_data["tcp_mapping_creation"]))
+				})
+			})
+
 			Context("when ttl is not present", func() {
 
 				BeforeEach(func() {

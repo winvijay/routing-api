@@ -149,11 +149,10 @@ type FakeClient struct {
 		result1 *sql.Rows
 		result2 error
 	}
-	DropColumnStub        func(column string, tableName string) error
+	DropColumnStub        func(column string) error
 	dropColumnMutex       sync.RWMutex
 	dropColumnArgsForCall []struct {
-		column    string
-		tableName string
+		column string
 	}
 	dropColumnReturns struct {
 		result1 error
@@ -684,15 +683,14 @@ func (fake *FakeClient) RowsReturns(result1 *sql.Rows, result2 error) {
 	}{result1, result2}
 }
 
-func (fake *FakeClient) DropColumn(column string, tableName string) error {
+func (fake *FakeClient) DropColumn(column string) error {
 	fake.dropColumnMutex.Lock()
 	fake.dropColumnArgsForCall = append(fake.dropColumnArgsForCall, struct {
-		column    string
-		tableName string
-	}{column, tableName})
+		column string
+	}{column})
 	fake.dropColumnMutex.Unlock()
 	if fake.DropColumnStub != nil {
-		return fake.DropColumnStub(column, tableName)
+		return fake.DropColumnStub(column)
 	} else {
 		return fake.dropColumnReturns.result1
 	}
@@ -704,10 +702,10 @@ func (fake *FakeClient) DropColumnCallCount() int {
 	return len(fake.dropColumnArgsForCall)
 }
 
-func (fake *FakeClient) DropColumnArgsForCall(i int) (string, string) {
+func (fake *FakeClient) DropColumnArgsForCall(i int) string {
 	fake.dropColumnMutex.RLock()
 	defer fake.dropColumnMutex.RUnlock()
-	return fake.dropColumnArgsForCall[i].column, fake.dropColumnArgsForCall[i].tableName
+	return fake.dropColumnArgsForCall[i].column
 }
 
 func (fake *FakeClient) DropColumnReturns(result1 error) {

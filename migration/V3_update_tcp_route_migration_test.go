@@ -14,7 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = FDescribe("V3UpdateTcpRouteMigration", func() {
+var _ = Describe("V3UpdateTcpRouteMigration", func() {
 	var (
 		sqlDB          *db.SqlDB
 		mysqlAllocator testrunner.DbAllocator
@@ -46,6 +46,24 @@ var _ = FDescribe("V3UpdateTcpRouteMigration", func() {
 		err = v0Migration.Run(sqlDB)
 		Expect(err).ToNot(HaveOccurred())
 
+		tcpRoute1Entity := models.TcpMappingEntity{
+			RouterGroupGuid: "rg-guid-1",
+			HostPort:        2000,
+			HostIP:          "1.2.3.4",
+			ExternalPort:    3000,
+		}
+		tcpRoute1 := models.TcpRouteMapping{
+			Model:            models.Model{Guid: "guid-1"},
+			ExpiresAt:        time.Now().Add(1 * time.Hour),
+			TcpMappingEntity: tcpRoute1Entity,
+		}
+		foo, err := sqlDB.Client.Create(&tcpRoute1)
+		Expect(int(foo)).To(Equal(1))
+		Expect(err).NotTo(HaveOccurred())
+		tcpRoutes, err := sqlDB.ReadTcpRouteMappings()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(tcpRoutes).To(HaveLen(1))
+
 		err = sqlDB.Client.Model(&models.TcpRouteMapping{}).DropColumn("isolation_segment")
 		Expect(err).ToNot(HaveOccurred())
 
@@ -71,55 +89,32 @@ var _ = FDescribe("V3UpdateTcpRouteMigration", func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	Describe("Version", func() {
+	FDescribe("Version", func() {
 		It("returns 3 for the version", func() {
 			v3Migration := migration.NewV3UpdateTcpRouteMigration()
 			Expect(v3Migration.Version()).To(Equal(3))
 		})
 	})
 
-	Describe("Run", func() {
-		Context("when there are no routes", func() {
-			var v3Migration migration.Migration
-
-			BeforeEach(func() {
-				v3Migration = migration.NewV3UpdateTcpRouteMigration()
-				tcpRoutes, err := sqlDB.ReadTcpRouteMappings()
-				Expect(err).NotTo(HaveOccurred())
-				Expect(tcpRoutes).To(HaveLen(0))
-			})
-			It("should update table definition to include isolation_segments column", func() {
-				err := v3Migration.Run(sqlDB)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(sqlDB.Client.HasTable(&models.TcpRouteMapping{})).To(BeTrue())
-
-				rows, err := sqlDB.Client.Rows("tcp_routes")
-				Expect(err).ToNot(HaveOccurred())
-				columnList, err := rows.Columns()
-				Expect(err).ToNot(HaveOccurred())
-				Expect(columnList).Should(ContainElement("isolation_segment"))
-			})
+	FDescribe("Run", func() {
+		var v3Migration migration.Migration
+		BeforeEach(func() {
+			v3Migration = migration.NewV3UpdateTcpRouteMigration()
 		})
-	})
-	Context("when there are routes", func() {
-		It("should update the records with empty isolation segments", func() {
-			tcpRoute1Entity := models.TcpMappingEntity{
-				RouterGroupGuid:  "rg-guid-1",
-				HostPort:         2000,
-				HostIP:           "1.2.3.4",
-				ExternalPort:     3000,
-				IsolationSegment: "some-iso-seg",
-			}
-			tcpRoute1 := models.TcpRouteMapping{
-				Model:            models.Model{Guid: "guid-1"},
-				ExpiresAt:        time.Now(),
-				TcpMappingEntity: tcpRoute1Entity,
-			}
 
-			_, err := sqlDB.Client.Create(&tcpRoute1)
-			Expect(err).NotTo(HaveOccurred())
+		It("should update table definition to include isolation_segments column", func() {
+			err := v3Migration.Run(sqlDB)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(sqlDB.Client.HasTable(&models.TcpRouteMapping{})).To(BeTrue())
 
-			v3Migration := migration.NewV3UpdateTcpRouteMigration()
+			rows, err := sqlDB.Client.Rows("tcp_routes")
+			Expect(err).ToNot(HaveOccurred())
+			columnList, err := rows.Columns()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(columnList).Should(ContainElement("isolation_segment"))
+		})
+
+		It("should update existing records with empty isolation segments", func() {
 			tcpRoutes, err := sqlDB.ReadTcpRouteMappings()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(tcpRoutes).To(HaveLen(1))
