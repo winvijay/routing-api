@@ -56,19 +56,19 @@ var _ = Describe("TcpRouteMappingsHandler", func() {
 				tcpMappings []models.TcpRouteMapping
 			)
 
-			Context("when an isolation segment is preset", func() {
+			Context("when an isolation segment is present", func() {
 				tcpMapping := models.TcpRouteMapping{
 					TcpMappingEntity: models.TcpMappingEntity{
 						RouterGroupGuid:  "router-group-guid-001",
 						ExternalPort:     52000,
 						HostIP:           "1.2.3.4",
 						HostPort:         60000,
-						TTL:              *maxTTL,
+						TTL:              &maxTTL,
 						IsolationSegment: "some-iso-seg",
 					}}
 				tcpMappings = []models.TcpRouteMapping{tcpMapping}
 
-				FIt("sets the isolation segment", func() {
+				It("sets the isolation segment", func() {
 					request = handlers.NewTestRequest(tcpMappings)
 
 					tcpRouteMappingsHandler.Upsert(responseRecorder, request)
@@ -88,10 +88,21 @@ var _ = Describe("TcpRouteMappingsHandler", func() {
 					Expect(logger.Logs()[0].Message).To(ContainSubstring("request"))
 					Expect(logger.Logs()[0].Data["tcp_mapping_creation"]).To(Equal(log_data["tcp_mapping_creation"]))
 				})
+
+				Context("when the isolation segment is something other than a string", func() {
+					It("returns http BadRequest", func() {
+						request = handlers.NewTestRequest(`[{"router_group_guid": "tcp-default", "port": 1024, "backend_ip": "10.1.1.12", "backend_port": 60000, "isolation_segment": ["foo", "bar"]}]`)
+						tcpRouteMappingsHandler.Upsert(responseRecorder, request)
+
+						Expect(responseRecorder.Code).To(Equal(http.StatusBadRequest))
+						Expect(responseRecorder.Body.String()).To(ContainSubstring("cannot unmarshal array into Go value of type string"))
+						Expect(database.SaveRouteCallCount()).To(Equal(0))
+						Expect(logger.Logs()[0].Message).To(ContainSubstring("error"))
+					})
+				})
 			})
 
 			Context("when ttl is not present", func() {
-
 				BeforeEach(func() {
 					tcpMapping := models.TcpRouteMapping{
 						TcpMappingEntity: models.TcpMappingEntity{
@@ -116,6 +127,7 @@ var _ = Describe("TcpRouteMappingsHandler", func() {
 						"backend_port":      float64(60000),
 						"modification_tag":  map[string]interface{}{"guid": "", "index": float64(0)},
 						"ttl":               float64(maxTTL),
+						"isolation_segment": "",
 					}
 					log_data := map[string][]interface{}{"tcp_mapping_creation": []interface{}{data}}
 
@@ -175,6 +187,7 @@ var _ = Describe("TcpRouteMappingsHandler", func() {
 							"backend_port":      float64(60000),
 							"modification_tag":  map[string]interface{}{"guid": "", "index": float64(0)},
 							"ttl":               float64(60),
+							"isolation_segment": "",
 						}
 						log_data := map[string][]interface{}{"tcp_mapping_creation": []interface{}{data}}
 
@@ -332,7 +345,8 @@ var _ = Describe("TcpRouteMappingsHandler", func() {
 									"guid": "",
 									"index": 0
 								},
-								"ttl": 55
+								"ttl": 55,
+								"isolation_segment": ""
 							},
 							{
 								"router_group_guid": "router-group-guid-001",
@@ -343,7 +357,8 @@ var _ = Describe("TcpRouteMappingsHandler", func() {
 									"guid": "",
 									"index": 0
 								},
-								"ttl": 55
+								"ttl": 55,
+								"isolation_segment": ""
 							}]`
 				Expect(responseRecorder.Body.String()).To(MatchJSON(expectedJson))
 			})
@@ -449,6 +464,7 @@ var _ = Describe("TcpRouteMappingsHandler", func() {
 						"backend_port":      float64(60000),
 						"modification_tag":  map[string]interface{}{"guid": "", "index": float64(0)},
 						"ttl":               float64(60),
+						"isolation_segment": "",
 					}
 					log_data := map[string][]interface{}{"tcp_mapping_deletion": []interface{}{data}}
 
