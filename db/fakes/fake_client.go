@@ -12,7 +12,7 @@ type FakeClient struct {
 	CloseStub        func() error
 	closeMutex       sync.RWMutex
 	closeArgsForCall []struct{}
-	closeReturns     struct {
+	closeReturns struct {
 		result1 error
 	}
 	WhereStub        func(query interface{}, args ...interface{}) db.Client
@@ -90,19 +90,19 @@ type FakeClient struct {
 	BeginStub        func() db.Client
 	beginMutex       sync.RWMutex
 	beginArgsForCall []struct{}
-	beginReturns     struct {
+	beginReturns struct {
 		result1 db.Client
 	}
 	RollbackStub        func() error
 	rollbackMutex       sync.RWMutex
 	rollbackArgsForCall []struct{}
-	rollbackReturns     struct {
+	rollbackReturns struct {
 		result1 error
 	}
 	CommitStub        func() error
 	commitMutex       sync.RWMutex
 	commitArgsForCall []struct{}
-	commitReturns     struct {
+	commitReturns struct {
 		result1 error
 	}
 	HasTableStub        func(value interface{}) bool
