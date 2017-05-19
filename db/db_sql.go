@@ -341,8 +341,9 @@ func (s *SqlDB) ReadFilteredTcpRouteMappings(columnName string, values []string)
 func (s *SqlDB) readTcpRouteMapping(tcpMapping models.TcpRouteMapping) (models.TcpRouteMapping, error) {
 	var routes []models.TcpRouteMapping
 	var tcpRoute models.TcpRouteMapping
-	err := s.Client.Where("host_ip = ? and host_port = ? and external_port = ?",
-		tcpMapping.HostIP, tcpMapping.HostPort, tcpMapping.ExternalPort).Find(&routes)
+	fmt.Println("Searching for", tcpMapping.RouterGroupGuid, tcpMapping.HostIP, tcpMapping.HostPort, tcpMapping.ExternalPort)
+	err := s.Client.Where("router_group_guid = ? and host_ip = ? and host_port = ? and external_port = ?",
+		tcpMapping.RouterGroupGuid, tcpMapping.HostIP, tcpMapping.HostPort, tcpMapping.ExternalPort).Find(&routes)
 
 	if err != nil {
 		return tcpRoute, err
@@ -382,6 +383,7 @@ func (s *SqlDB) SaveTcpRouteMapping(tcpRouteMapping models.TcpRouteMapping) erro
 	}
 
 	if existingTcpRouteMapping != (models.TcpRouteMapping{}) {
+		fmt.Println("EXISTING TCP ROUTE MAPPING", existingTcpRouteMapping)
 		newTcpRouteMapping := updateTcpRouteMapping(existingTcpRouteMapping, tcpRouteMapping)
 		_, err = s.Client.Save(&newTcpRouteMapping)
 		if err != nil {
@@ -390,6 +392,7 @@ func (s *SqlDB) SaveTcpRouteMapping(tcpRouteMapping models.TcpRouteMapping) erro
 		return s.emitEvent(UpdateEvent, newTcpRouteMapping)
 	}
 
+	fmt.Println("NOT EXISTING TCP ROUTE MAPPING")
 	tcpMapping, err := models.NewTcpRouteMappingWithModel(tcpRouteMapping)
 	if err != nil {
 		return err

@@ -2,6 +2,7 @@ package db_test
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"sync/atomic"
 	"time"
@@ -380,6 +381,37 @@ var _ = Describe("SqlDB", func() {
 					Expect(err).ToNot(HaveOccurred())
 					Expect(dbTcpRoute).ToNot(BeNil())
 					Expect(initialExpiration).To(BeTemporally("<", dbTcpRoute.ExpiresAt))
+				})
+
+				Context("and router group is changed", func() {
+					var (
+						routerGroupId2 string
+						tcpRoute2      models.TcpRouteMapping
+					)
+					BeforeEach(func() {
+						routerGroupId2 = newUuid()
+						tcpRoute2 = models.NewTcpRouteMapping(routerGroupId2, 3056, "127.0.0.1", 2990, 5)
+					})
+
+					AfterEach(func() {
+						_, err = sqlDB.Client.Delete(&tcpRoute2)
+						Expect(err).ToNot(HaveOccurred())
+					})
+
+					FIt("creates another tcp route", func() {
+						fmt.Println("FIRST ROUTER GROUP ID", routerGroupId)
+						fmt.Println("SECOND ROUTER GROUP ID", routerGroupId2)
+						err = sqlDB.SaveTcpRouteMapping(tcpRoute2)
+						Expect(err).ToNot(HaveOccurred())
+						var dbTcpRoutes []models.TcpRouteMapping
+						err = sqlDB.Client.Where("host_ip = ?", "127.0.0.1").Find(&dbTcpRoutes)
+						Expect(err).ToNot(HaveOccurred())
+						Expect(dbTcpRoutes).To(HaveLen(2))
+						Expect(dbTcpRoutes).To(ConsistOf(
+							matchers.MatchTcpRoute(tcpRoute),
+							matchers.MatchTcpRoute(tcpRoute2),
+						))
+					})
 				})
 			})
 
