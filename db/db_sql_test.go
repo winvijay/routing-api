@@ -22,7 +22,10 @@ import (
 
 var _ = Describe("SqlDB", func() {
 
-	var sqlDB *db.SqlDB
+	var (
+		sqlCfg *config.SqlDB
+		sqlDB  *db.SqlDB
+	)
 
 	Connection := func() {
 		Describe("Connection", func() {
@@ -121,36 +124,39 @@ var _ = Describe("SqlDB", func() {
 			})
 
 			Context("when config is nil", func() {
-				BeforeEach(func() {
-					sqlCfg = nil
-				})
-
 				It("returns an error", func() {
+					failedSqlDB, err := db.NewSqlDB(nil)
 					Expect(err).To(HaveOccurred())
-					Expect(sqlDB).To(BeNil())
+					Expect(failedSqlDB).To(BeNil())
 				})
 			})
 
 			Context("when authentication fails", func() {
+				var badAuthConfig config.SqlDB
 				BeforeEach(func() {
-					sqlCfg.Username = "wrong_username"
-					sqlCfg.Password = "wrong_password"
+					badAuthConfig = *sqlCfg
+					badAuthConfig.Username = "wrong_username"
+					badAuthConfig.Password = "wrong_password"
 				})
 
 				It("returns an error", func() {
+					failedSqlDB, err := db.NewSqlDB(&badAuthConfig)
 					Expect(err).To(HaveOccurred())
-					Expect(sqlDB).To(BeNil())
+					Expect(failedSqlDB).To(BeNil())
 				})
 			})
 
 			Context("when connecting to SQL DB fails", func() {
+				var badPortConfig config.SqlDB
 				BeforeEach(func() {
-					sqlCfg.Port = 1234
+					badPortConfig = *sqlCfg
+					badPortConfig.Port = 1234
 				})
 
 				It("returns an error", func() {
+					failedSqlDB, err := db.NewSqlDB(&badPortConfig)
 					Expect(err).To(HaveOccurred())
-					Expect(sqlDB).To(BeNil())
+					Expect(failedSqlDB).To(BeNil())
 				})
 			})
 		})
@@ -1465,19 +1471,12 @@ var _ = Describe("SqlDB", func() {
 	}
 
 	Describe("Test with Mysql", func() {
-
 		var (
 			err error
 		)
+
 		BeforeEach(func() {
-			sqlCfg = &config.SqlDB{
-				Username: "root",
-				Password: "password",
-				Schema:   sqlDBName,
-				Host:     "localhost",
-				Port:     3306,
-				Type:     "mysql",
-			}
+			sqlCfg = mysqlCfg
 			sqlDB, err = db.NewSqlDB(sqlCfg)
 			Expect(err).ToNot(HaveOccurred())
 			err = migration.NewV0InitMigration().Run(sqlDB)
@@ -1504,15 +1503,9 @@ var _ = Describe("SqlDB", func() {
 		var (
 			err error
 		)
+
 		BeforeEach(func() {
-			sqlCfg = &config.SqlDB{
-				Username: "postgres",
-				Password: "",
-				Schema:   postgresDBName,
-				Host:     "localhost",
-				Port:     5432,
-				Type:     "postgres",
-			}
+			sqlCfg = postgresCfg
 			sqlDB, err = db.NewSqlDB(sqlCfg)
 			Expect(err).ToNot(HaveOccurred())
 			err = migration.NewV0InitMigration().Run(sqlDB)

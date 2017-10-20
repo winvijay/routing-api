@@ -73,7 +73,6 @@ var _ = SynchronizedBeforeSuite(
 	func(binPaths []byte) {
 		grpclog.SetLogger(log.New(ioutil.Discard, "", 0))
 
-		var err error
 		path := string(binPaths)
 		routingAPIBinPath = strings.Split(path, ",")[0]
 		locketBinPath = strings.Split(path, ",")[1]
@@ -82,7 +81,8 @@ var _ = SynchronizedBeforeSuite(
 
 		mysqlAllocator = testrunner.NewMySQLAllocator()
 
-		sqlDBName, err = mysqlAllocator.Create()
+		cfg, err := mysqlAllocator.Create()
+		sqlDBName = cfg.Schema
 		Expect(err).NotTo(HaveOccurred())
 
 		setupConsul()

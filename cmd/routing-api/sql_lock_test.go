@@ -56,7 +56,8 @@ var _ = Describe("SqlLock", func() {
 		locketAddress = fmt.Sprintf("localhost:%d", locketPort)
 		locketRunner = locketrunner.NewLocketRunner(locketBinPath, func(cfg *locketconfig.LocketConfig) {
 			cfg.ConsulCluster = consulRunner.ConsulCluster()
-			cfg.DatabaseConnectionString = mysqlAllocator.ConnectionString() + sqlDBName
+			mysqlConnStr := "root:password@/"
+			cfg.DatabaseConnectionString = mysqlConnStr + sqlDBName
 			cfg.DatabaseDriver = "mysql"
 			cfg.ListenAddress = locketAddress
 		})
